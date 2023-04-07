@@ -1,0 +1,28 @@
+{
+    "en": {
+        "language_name" : "English.",
+        "greeting1": "Your default language is: ",
+        "greeting2": "Do you want to keep it?",
+        "language_is_chosen": "Language is chosen",
+        "yes": "Yes",
+        "no": "No",
+        "change" : "Change",
+        "farewell": "Goodbye!",
+        "question": "How are you?"
+    },
+    "es": {
+        "greeting1": "¡Hola!",
+        "farewell": "¡Adiós!",
+        "question": "¿Cómo estás?"
+    },
+  "rk": {
+        "language_name" : "русский.",
+        "greeting1": "Ваш язык по умолчанию : ",
+        "greeting2": "Ви желаете его оставить?",
+        "yes": "Да",
+        "change" : "Change",
+        "no": "Нет",
+        "farewell": "Goodbye!",
+        "question": "How are you?"
+    }
+}

@@ -1,0 +1,8 @@
+# created by virtualenv automatically
+
+.env
+aiogram_help_comments.py
+ss.db
+myDiscovering.txt
+.idea/
+__pycache__/
