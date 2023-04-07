@@ -4,11 +4,14 @@
         "greeting1": "Your default language is: ",
         "greeting2": "Do you want to keep it?",
         "language_is_chosen": "Language is chosen",
+        "name_agree": "Do you want registrate as {first_name} {last_name}",
         "yes": "Yes",
         "no": "No",
         "change" : "Change",
         "farewell": "Goodbye!",
-        "question": "How are you?"
+        "question": "How are you?",
+        "first_name_text" : "Enter your first name:",
+        "last_name_text" : "Enter your last name:"
     },
     "es": {
         "greeting1": "¡Hola!",
