@@ -11,7 +11,11 @@
         "farewell": "Goodbye!",
         "question": "How are you?",
         "first_name_text" : "Enter your first name:",
-        "last_name_text" : "Enter your last name:"
+        "ask_for_telephone" : "Enter your telephone number in full format likes +...",
+        "send_contact" : "Send your contact ☎️",
+        "reg_text" : "You can share your contact by sharing details or manually entering them",
+        "last_name_text" : "Enter your last name:",
+        "ask_for_email" : "Enter your Email:"
     },
     "es": {
         "greeting1": "¡Hola!",

@@ -97,3 +97,15 @@ async def one_button(button_text):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     keyboard.add(types.KeyboardButton(button_text))
     return keyboard
+
+async def your_phone_number(send_contact):
+    '''ask for phone nomber'''
+    markup_request = types.ReplyKeyboardMarkup(resize_keyboard=True,one_time_keyboard=True).add(
+        types.KeyboardButton(send_contact, request_contact=True))
+    return markup_request
+
+# async def your_phone_number():
+#     '''ask for phone nomber'''
+#     markup_request = types.ReplyKeyboardMarkup(resize_keyboard=True,one_time_keyboard=True).add(
+#         types.KeyboardButton('Отправить свой контакт ☎️', request_contact=True))
+#     return markup_request
