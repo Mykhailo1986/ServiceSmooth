@@ -18,12 +18,15 @@ dp = Dispatcher(bot, storage=MemoryStorage())
 dp.middleware.setup(LoggingMiddleware())
 
 
+
+
 @dp.message_handler(commands=["start"], state="*")
 async def start(message=types.Message, state=FSMContext):
     """It greets the user, changes the default language, and then directs them to the registration process"""
     await message.answer("HI")
     # checks if the language is in the database. If not, the user is prompted to choose a language.
-    language_code = await fn.languageCoge_check(message)
+    id = int(message.chat.id)
+    language_code = await fn.languageCoge_check(id)
     if not language_code:
         await languageLocal(message)
 
@@ -38,7 +41,8 @@ async def start(message=types.Message, state=FSMContext):
 async def registration_start(message=types.Message, state=FSMContext):
     """Start registration form"""
     # checks if the language is in the database. If not, the user is prompted to choose a language.
-    language_code = await fn.languageCoge_check(message)
+    id = int(message.chat.id)
+    language_code = await fn.languageCoge_check(id)
     if not language_code:
         await languageLocal(message)
     # Propose to send a contact from user
@@ -55,7 +59,8 @@ async def registration_start(message=types.Message, state=FSMContext):
 @dp.message_handler(commands=["book"], state="*")
 async def booking(message=types.Message, state=FSMContext):
     # checks if the language is in the database. If not, the user is prompted to choose a language.
-    language_code = await fn.languageCoge_check(message)
+    id = int(message.chat.id)
+    language_code = await fn.languageCoge_check(id)
     if not language_code:
         await languageLocal(message)
     # checks if User allredy registrated?
@@ -64,7 +69,7 @@ async def booking(message=types.Message, state=FSMContext):
          await registration_start(message,state)
     else:
         await fn.send_registration_confirmation_message(message)
-
+        await ST.FirstRegistration.EMAIL_REG.set()
         await fn.is_contact_correct(message)
 
 
@@ -181,7 +186,10 @@ async def handler_email(message=types.Message, state=FSMContext):
     await fn.end_registration(message, state)
     await fn.is_contact_correct(message)
 
-
+@dp.callback_query_handler(lambda c: c.data == "contact correct", state=ST.FirstRegistration.EMAIL_REG)
+async def Regestration_thanks(call,state=FSMContext ):
+    """Send message with thanks for registration"""
+    await fn.thanks(call)
     # Close the state
     await state.finish()
 

@@ -45,7 +45,8 @@ async def only_numbers(text_with_nombers):
 async def register_language_if_needed(message):
     """checks if the language is in the database. If not, the user is prompted to choose a language."""
     await register_language_if_needed(message)
-    language_code = await languageCoge_check(message)
+    id = int(message.chat.id)
+    language_code = await languageCoge_check(id)
     if not language_code:
         await languageLocal(message)
 
@@ -104,10 +105,8 @@ async def saveLanguage(call):
     )  # languagePack back a List si in 1 request I add a [0].
 
 
-async def languageCoge_check(message):
+async def languageCoge_check(id):
     """Check whether a user has already set a default language preference in the bot or not."""
-    id = int(message.chat.id)
-
     cursor.execute("SELECT language_code FROM users WHERE id = ?;", (id,))
     result = cursor.fetchone()
     return result[0] if result else None
@@ -228,7 +227,8 @@ async def send_registration_confirmation_message(message):
 
 async def is_contact_correct(message):
     '''Send a confirm message with 2 options'''
-    language_code= await languageCoge_check(message)
+    id = int(message.chat.id)
+    language_code= await languageCoge_check(id)
     question, markup = await kb.two_InlineKeyboardButton(
         language_code,
         "valid_contact",
@@ -249,4 +249,16 @@ async def extract_and_save_from_contact(message, state):
     await state.update_data(phone_number=phone_number)
     await state.update_data(first_name=first_name)
     await state.update_data(last_name=last_name)
+
+
+async def thanks(call):
+    '''Send thanks'''
+    # takes a language from state
+    id = int(call.message.chat.id)
+    language_code = await languageCoge_check(id)
+    thanks = await translate_text(language_code, "thanks")
+    await call.message.answer(thanks)
+
+
+
 

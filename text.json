@@ -17,7 +17,8 @@
         "last_name_text" : "Enter your last name:",
         "ask_for_email" : "Enter your Email:",
         "valid_contact" : "Is this right?",
-        "reg_thanks" : "Your registration datas:\n {first_name} {last_name}, your phone number is +{phone_number} and email is {email}."
+        "reg_thanks" : "Your registration datas:\n {first_name} {last_name}, your phone number is +{phone_number} and email is {email}.",
+        "thanks" : "Thanks you."
     },
     "es": {
         "greeting1": "¡Hola!",
