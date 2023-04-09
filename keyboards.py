@@ -2,7 +2,7 @@ from aiogram import types
 import json
 
 
-async def translate_text(languageCode, request):
+async def translate_text(language_code, request):
     """Search the text in correct language."""
     # Load the text strings from the JSON file
     with open("text.json", "r", encoding="utf-8") as f:
@@ -10,12 +10,12 @@ async def translate_text(languageCode, request):
 
     # Check if request is a string or a list
     if isinstance(request, str):
-        response = text[languageCode][request]
+        response = text[language_code][request]
     else:
         # Loop through each string in the request and get the corresponding translation
         response = []
         for string in request:
-            translation = text.get(languageCode, {}).get(string, None)
+            translation = text.get(language_code, {}).get(string, None)
             response.append(translation)
 
     return response
@@ -48,7 +48,7 @@ async def translate_text(languageCode, request):
 #             types.InlineKeyboardButton(yes, callback_data=f"save the language={languageCode}"),
 #             types.InlineKeyboardButton(change, callback_data="chose other language"))
 #     return question, markup
-async def selectLanguageAgre(languageCode, localeLanguageName=0):
+async def selectLanguageAgre(language_code, localeLanguageName=0):
     """Confirm selected language"""
 
     # Load the text strings from the JSON file
@@ -56,12 +56,12 @@ async def selectLanguageAgre(languageCode, localeLanguageName=0):
         text = json.load(f)
 
         # Ask a question in the user's preferred language
-        if languageCode in [keys for keys in text]:
+        if language_code in [keys for keys in text]:
             question = (
-                text[languageCode]["greeting1"]
-                + text[languageCode]["language_name"]
+                text[language_code]["greeting1"]
+                + text[language_code]["language_name"]
                 + "\n"
-                + text[languageCode]["greeting2"]
+                + text[language_code]["greeting2"]
             )
 
         else:
@@ -72,18 +72,19 @@ async def selectLanguageAgre(languageCode, localeLanguageName=0):
                 " so the default language will be set to English automatically."
                 " If you agree, press 'Yes',\n or you can choose another language by pressing 'Chose'."
             )
-            languageCode = "en"
+            language_code = "en"
 
     question1, markup = await two_InlineKeyboardButton(
-        languageCode,
+        language_code,
         "greeting1",
         "yes",
         "change",
-        f"save the language={languageCode}",
+        f"save the language={language_code}",
         "chose other language",
     )
 
     return question, markup
+
 
 
 async def two_InlineKeyboardButton(

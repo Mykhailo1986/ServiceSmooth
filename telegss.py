@@ -37,8 +37,10 @@ async def start(message=types.Message, state=FSMContext):
 @dp.message_handler(commands=["reg"], state="*")
 async def registration_start(message=types.Message, state=FSMContext):
     """Start registration form"""
-    # Call for language code from DB
+    # checks if the language is in the database. If not, the user is prompted to choose a language.
     language_code = await fn.languageCoge_check(message)
+    if not language_code:
+        await languageLocal(message)
     # Propose to send a contact from user
     await fn.ask_contact(message, language_code)
     # Create a form for input the names or implement it automatically
@@ -50,6 +52,28 @@ async def registration_start(message=types.Message, state=FSMContext):
     await state.update_data(language_code=language_code)
 
 
+@dp.message_handler(commands=["book"], state="*")
+async def booking(message=types.Message, state=FSMContext):
+    # checks if the language is in the database. If not, the user is prompted to choose a language.
+    language_code = await fn.languageCoge_check(message)
+    if not language_code:
+        await languageLocal(message)
+    # checks if User allredy registrated?
+    first_name = await fn.first_nameCheck(message)
+    if not first_name:
+         await registration_start(message,state)
+    else:
+        await fn.send_registration_confirmation_message(message)
+
+        await fn.is_contact_correct(message)
+
+
+
+
+"""
+Regestration
+BEGINING
+"""
 @dp.message_handler(
     content_types=types.ContentType.CONTACT, state=ST.FirstRegistration.F_NAME_REG
 )
@@ -151,12 +175,26 @@ async def handler_email(message=types.Message, state=FSMContext):
         await message.answer("Please enter a valid email address.")
         return
     await state.update_data(email=email)
+
     # Send all data from state into DB
+
     await fn.end_registration(message, state)
+    await fn.is_contact_correct(message)
+
+
     # Close the state
     await state.finish()
 
+"""
+Registration
+END
+"""
 
+
+"""
+Language chose
+BEGINING
+"""
 @dp.message_handler(commands=["lang"], state="*")
 async def languageLocal(message=types.Message, state=SSS.CHOOSE_LANGUAGE):
     """Propose to use the local language"""
@@ -188,5 +226,9 @@ async def saveLanguage(call, state=SSS.CHOOSE_LANGUAGE):
     await fn.saveLanguage(call)
     await state.finish()
 
+"""
+Language chose
+END
+"""
 
 executor.start_polling(dp)

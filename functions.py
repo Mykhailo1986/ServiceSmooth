@@ -10,7 +10,7 @@ cursor = conn.cursor()
 from datetime import datetime
 
 
-async def translate_text(languageCode, request):
+async def translate_text(language_code, request):
     """Search the text in correct language."""
     # Load the text strings from the JSON file
     with open("text.json", "r", encoding="utf-8") as f:
@@ -18,12 +18,12 @@ async def translate_text(languageCode, request):
 
     # Check if request is a string or a list
     if isinstance(request, str):
-        response = text[languageCode][request]
+        response = text[language_code][request]
     else:
         # Loop through each string in the request and get the corresponding translation
         response = []
         for string in request:
-            translation = text.get(languageCode, {}).get(string, None)
+            translation = text.get(language_code, {}).get(string, None)
             response.append(translation)
 
     return response
@@ -107,6 +107,7 @@ async def saveLanguage(call):
 async def languageCoge_check(message):
     """Check whether a user has already set a default language preference in the bot or not."""
     id = int(message.chat.id)
+
     cursor.execute("SELECT language_code FROM users WHERE id = ?;", (id,))
     result = cursor.fetchone()
     return result[0] if result else None
@@ -200,18 +201,19 @@ async def end_registration(message, state):
     )
     conn.commit()
 
-    await send_registration_confirmation_message(
-        email, first_name, last_name, message, phone_number, state
-    )
+    await send_registration_confirmation_message(message)
 
 
-async def send_registration_confirmation_message(
-    email, first_name, last_name, message, phone_number, state
-):
+async def send_registration_confirmation_message(message):
     """Send a messge with thanks for registration"""
-    languageCode = await language_code_from_state(state)
+    # takes contact from DB
+    id = int(message.chat.id)
+    cursor.execute(
+        "SELECT language_code, first_name, last_name, phone_number, email FROM users WHERE id = ?;", (id,))
+    language_code, first_name, last_name, phone_number, email  = cursor.fetchone()
+    conn.commit()
     # Take a text with chosen language
-    thanks_for_reg = await translate_text(languageCode, "reg_thanks")
+    thanks_for_reg = await translate_text(language_code, "reg_thanks")
     # Format text
     thanks_for_reg = thanks_for_reg.format(
         first_name=first_name,
@@ -223,6 +225,22 @@ async def send_registration_confirmation_message(
     await message.answer(thanks_for_reg)
 
 
+
+async def is_contact_correct(message):
+    '''Send a confirm message with 2 options'''
+    language_code= await languageCoge_check(message)
+    question, markup = await kb.two_InlineKeyboardButton(
+        language_code,
+        "valid_contact",
+        "yes",
+        "change",
+        "contact correct",
+        "start registration",
+    )
+    await message.answer(question, reply_markup=markup)
+
+
+
 async def extract_and_save_from_contact(message, state):
     """extracts from contact data and save it"""
     phone_number = message.contact.phone_number
@@ -231,3 +249,4 @@ async def extract_and_save_from_contact(message, state):
     await state.update_data(phone_number=phone_number)
     await state.update_data(first_name=first_name)
     await state.update_data(last_name=last_name)
+

@@ -16,7 +16,8 @@
         "reg_text" : "You can share your contact by sharing details or manually entering them",
         "last_name_text" : "Enter your last name:",
         "ask_for_email" : "Enter your Email:",
-        "reg_thanks" : "Thank you for registration {first_name} {last_name}, your phone number is +{phone_number} and email is {email}."
+        "valid_contact" : "Is this right?",
+        "reg_thanks" : "Your registration datas:\n {first_name} {last_name}, your phone number is +{phone_number} and email is {email}."
     },
     "es": {
         "greeting1": "¡Hola!",

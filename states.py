@@ -14,3 +14,7 @@ class FirstRegistration(StatesGroup):
     L_NAME_REG = State()
     TEL_REG = State()
     EMAIL_REG = State()
+    END_REG = State()
+
+class Booking(StatesGroup):
+    START_BOOK= State()  # Here is I save the language_code
