@@ -7,7 +7,6 @@ import logging
 import os
 
 import functions as fn
-from states import ServiseSmoothState as SSS
 import states as ST
 
 load_dotenv()
@@ -68,12 +67,43 @@ async def booking(message=types.Message, state=FSMContext):
     if not first_name:
          await registration_start(message,state)
     else:
-        await fn.send_registration_confirmation_message(message)
-        await ST.FirstRegistration.EMAIL_REG.set()
-        await fn.is_contact_correct(message)
+        await fn.registration_booking(message,language_code)
+    await ST.Booking.START_BOOK.set()
+    await state.update_data(language_code=language_code)
+    await spsialist1(message,state)
 
 
+@dp.message_handler(commands=["1"], state=ST.Booking.START_BOOK)
+async def spsialist1(message=types.Message, state=FSMContext):
+    id = int(message.chat.id)
+    language_code = await fn.languageCoge_check(id)
+    if not language_code:
+        await languageLocal(message)
+    await fn.specialist_name(language_code, message)
+    # await fn.chose_procedure_propose(language_code, message)
+@dp.message_handler(commands=["propos"], state="*")
+async def Proposition(message=types.Message, state=FSMContext):
+    id = int(message.chat.id)
+    language_code = await fn.languageCoge_check(id)
+    if not language_code:
+        await languageLocal(message)
 
+    await fn.chose_procedure_propose(language_code, message)
+
+"""
+Booking
+BEGINING
+"""
+
+@dp.message_handler(commands=["1"], state="ST.Booking.START_BOOK")
+async def firt_option(message=types.Message, state=FSMContext):
+    await message.answer("виберете процедуру:")
+
+
+"""
+Boking
+END
+"""
 
 """
 Regestration
@@ -185,14 +215,18 @@ async def handler_email(message=types.Message, state=FSMContext):
 
     await fn.end_registration(message, state)
     await fn.is_contact_correct(message)
-
 @dp.callback_query_handler(lambda c: c.data == "contact correct", state=ST.FirstRegistration.EMAIL_REG)
-async def Regestration_thanks(call,state=FSMContext ):
+async def registration_correct(call,state=FSMContext ):
     """Send message with thanks for registration"""
     await fn.thanks(call)
     # Close the state
     await state.finish()
 
+@dp.callback_query_handler(lambda c: c.data == "start registration", state=ST.FirstRegistration.EMAIL_REG)
+async def reregistration(call,state=FSMContext ):
+    """Send message asking user which information they would like to correct """
+    message=call.message
+    await registration_start(message, state)
 """
 Registration
 END
@@ -204,14 +238,14 @@ Language chose
 BEGINING
 """
 @dp.message_handler(commands=["lang"], state="*")
-async def languageLocal(message=types.Message, state=SSS.CHOOSE_LANGUAGE):
+async def languageLocal(message=types.Message, state=ST.ServiseSmoothState.CHOOSE_LANGUAGE):
     """Propose to use the local language"""
     await fn.languageLocal(message)
-    await SSS.CHOOSE_LANGUAGE.set()
+    await ST.ServiseSmoothState.CHOOSE_LANGUAGE.set()
 
 
 @dp.callback_query_handler(
-    lambda c: c.data == "chose other language", state=SSS.CHOOSE_LANGUAGE
+    lambda c: c.data == "chose other language", state=ST.ServiseSmoothState.CHOOSE_LANGUAGE
 )
 async def choseLanguage(call):
     """Make a row with possible languages by keys from file"""
@@ -219,7 +253,7 @@ async def choseLanguage(call):
 
 
 @dp.callback_query_handler(
-    lambda c: c.data.startswith("language="), state=SSS.CHOOSE_LANGUAGE
+    lambda c: c.data.startswith("language="), state=ST.ServiseSmoothState.CHOOSE_LANGUAGE
 )
 async def implemenLanguage(call):
     """Propose to use the selected language"""
@@ -227,9 +261,9 @@ async def implemenLanguage(call):
 
 
 @dp.callback_query_handler(
-    lambda c: c.data.startswith("save the language="), state=SSS.CHOOSE_LANGUAGE
+    lambda c: c.data.startswith("save the language="), state=ST.ServiseSmoothState.CHOOSE_LANGUAGE
 )
-async def saveLanguage(call, state=SSS.CHOOSE_LANGUAGE):
+async def saveLanguage(call, state=ST.ServiseSmoothState.CHOOSE_LANGUAGE):
     """Save the selected language"""
     await fn.saveLanguage(call)
     await state.finish()

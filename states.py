@@ -17,4 +17,10 @@ class FirstRegistration(StatesGroup):
     END_REG = State()
 
 class Booking(StatesGroup):
-    START_BOOK= State()  # Here is I save the language_code
+    START_BOOK = State()  # Here is I save the language_code
+    SEL_Spec = State()
+    SEL_Place = State()
+    SEL_Rroc = State()
+    SEL_Dare = State()
+    SEL_Time = State()
+    END_BOOK = State()

@@ -208,8 +208,10 @@ async def send_registration_confirmation_message(message):
     # takes contact from DB
     id = int(message.chat.id)
     cursor.execute(
-        "SELECT language_code, first_name, last_name, phone_number, email FROM users WHERE id = ?;", (id,))
-    language_code, first_name, last_name, phone_number, email  = cursor.fetchone()
+        "SELECT language_code, first_name, last_name, phone_number, email FROM users WHERE id = ?;",
+        (id,),
+    )
+    language_code, first_name, last_name, phone_number, email = cursor.fetchone()
     conn.commit()
     # Take a text with chosen language
     thanks_for_reg = await translate_text(language_code, "reg_thanks")
@@ -224,11 +226,10 @@ async def send_registration_confirmation_message(message):
     await message.answer(thanks_for_reg)
 
 
-
 async def is_contact_correct(message):
-    '''Send a confirm message with 2 options'''
+    """Send a confirm message with 2 options"""
     id = int(message.chat.id)
-    language_code= await languageCoge_check(id)
+    language_code = await languageCoge_check(id)
     question, markup = await kb.two_InlineKeyboardButton(
         language_code,
         "valid_contact",
@@ -238,7 +239,6 @@ async def is_contact_correct(message):
         "start registration",
     )
     await message.answer(question, reply_markup=markup)
-
 
 
 async def extract_and_save_from_contact(message, state):
@@ -251,14 +251,80 @@ async def extract_and_save_from_contact(message, state):
     await state.update_data(last_name=last_name)
 
 
-async def thanks(call):
-    '''Send thanks'''
-    # takes a language from state
-    id = int(call.message.chat.id)
-    language_code = await languageCoge_check(id)
+async def adapt_to_message(obj):
+    """Modifies an object so that it can be treated as a message, even if it was originally a callback query."""
+    if isinstance(obj, types.Message):
+        message = obj
+    elif isinstance(obj, types.CallbackQuery):
+        message = obj.message
+    return message
+
+
+async def thanks(obj):
+    """Send thanks"""
+    # Takes a language from state
+    message = await adapt_to_message(obj)
+    chat_id = int(message.chat.id)
+    language_code = await languageCoge_check(chat_id)
     thanks = await translate_text(language_code, "thanks")
-    await call.message.answer(thanks)
+    await message.answer(thanks)
+
+
+async def registration_booking(message, language_code):
+    await send_registration_confirmation_message(message)
+    go_reg = await translate_text(language_code, "go_reg")
+    await message.answer(go_reg)
 
 
 
 
+async def specialist_name(language_code, message):
+    '''Send the name of specialist'''
+    specialist_name = await translate_text(language_code, "specialist_name")
+    await message.answer(specialist_name)
+    await chose_procedure_propose(language_code, message)
+async def chose_procedure_propose(language_code, message):
+    chose_procedure = await translate_text(language_code, "chose_procedure")
+    await message.answer(chose_procedure)
+    # #TODO: use a  loop and str 'time_act' + str(i) and JSON makes the bellow
+    # act1, price_act1, time_act1 = await translate_text(language_code, ["act1", "price_act1", "time_act1"])
+    # act2, price_act2, time_act2 = await translate_text(language_code, ["act2", "price_act2", "time_act2"])
+    # act3, price_act3, time_act3 = await translate_text(language_code, ["act3", "price_act3", "time_act3"])
+    # act4, price_act4, time_act4 = await translate_text(language_code, ["act4", "price_act4", "time_act4"])
+    # act5, price_act5, time_act5 = await translate_text(language_code, ["act5", "price_act5", "time_act5"])
+    #
+    # propose =   "/1 "+ act1+ price_act1+"\t"+ time_act1+ " \n"+\
+    #             "/2 "+ act2+ price_act2+"\t"+ time_act2+ " \n"+\
+    #             "/3 "+ act3+ price_act3+"\t"+ time_act3+ " \n"+\
+    #             "/4 "+ act4+ price_act4+"\t"+ time_act4+ " \n"+\
+    #             "/5 "+ act5+ price_act5+"\t"+ time_act5
+    n = 5
+    propose = ''
+    keys = []
+    # Load the text strings from the JSON file
+    with open("text.json", "r", encoding="utf-8") as f:
+        text = json.load(f)
+        n += 1
+        for i in range(1, n):
+            propose += f"/{i} " + text[language_code][f"act{i}"] + "\t" + text[language_code][f"time_act{i}"] + \
+                       text[language_code][f"min"] + "\t" + text[language_code][f"price_act{i}"] + text[language_code][
+                           f"currency"] + "\n\n"
+            keys.append(f"/{i}")
+    keyboard = await kb.plural_buttons(keys)
+    await message.answer(propose, reply_markup=keyboard)
+
+# async def agree_registration_in_booking(mesage,sate)
+#     language_code = await language_code_from_state()
+# async def correct_registration(obj):
+#     if isinstance(obj, types.Message):
+#         chat_id = int(obj.chat.id)
+#         message = obj
+#     elif isinstance(obj, types.CallbackQuery):
+#         chat_id = int(obj.message.chat.id)
+#         call = obj
+#         message = obj.message
+#     language_code = await languageCoge_check(chat_id)
+#
+#     keyboard = await kb.plusural_button(["hello","/start","win"])
+#
+#     await message.answer("question", reply_markup=keyboard)

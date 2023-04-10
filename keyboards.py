@@ -124,6 +124,16 @@ async def one_button(button_text):
     keyboard.add(types.KeyboardButton(button_text))
     return keyboard
 
+async def plural_buttons(request):
+
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    keyboard.add(
+        *[
+            types.KeyboardButton(button_text)
+    for button_text in request
+        ]
+    )
+    return keyboard
 
 async def your_phone_number(send_contact):
     """ask for phone nomber"""
