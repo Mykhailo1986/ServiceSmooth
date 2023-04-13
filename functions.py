@@ -4,6 +4,7 @@ import json
 import keyboards as kb
 import sqlite3
 
+
 # Connect to the database
 conn = sqlite3.connect("ss.db")
 cursor = conn.cursor()
@@ -42,16 +43,52 @@ async def only_numbers(text_with_nombers):
     return phone_number
 
 
+async def obj_processor(obj):
+    if isinstance(obj, types.Message):
+        message = obj
+    elif isinstance(obj, types.CallbackQuery):
+        message = obj.message
+    return message
+
+
+async def language_coge_from_DB(id):
+    """Check whether a user has already set a default language preference in the bot or not."""
+    cursor.execute("SELECT language_code FROM users WHERE id = ?;", (id,))
+    result = cursor.fetchone()
+    return result[0] if result else None
+
+
+async def language_code_from_state(state):
+    """Extract language code"""
+    data = await state.get_data()
+    first_name = data.get("first_name")
+    language_code = data.get("language_code")
+
+    return language_code
+
+
+async def language_code_give(obj, state):
+    """Give back the language_code"""
+    language_code = await language_code_from_state(state)
+    if not language_code:
+        message = await obj_processor(obj)
+        id = int(message.chat.id)
+        language_code = await language_coge_from_DB(id)
+        if not language_code:
+            keyboards = await kb.one_button("/lang")
+            await message.answer("ONG!!! You didn't chose the language. Tap on /lang")
+    return language_code
+
+
 async def register_language_if_needed(message):
     """checks if the language is in the database. If not, the user is prompted to choose a language."""
-    await register_language_if_needed(message)
     id = int(message.chat.id)
-    language_code = await languageCoge_check(id)
+    language_code = await language_coge_from_DB(id)
     if not language_code:
-        await languageLocal(message)
+        await propose_local_language(message)
 
 
-async def languageLocal(message=types.Message):
+async def propose_local_language(message=types.Message):
     """Propose to use the local language"""
     # Get the local code  and his name on local language
     languageCode = message.from_user.language_code
@@ -61,7 +98,7 @@ async def languageLocal(message=types.Message):
     await message.answer(question, reply_markup=markup)
 
 
-async def implemenLanguage(call):
+async def implement_language(call):
     """Propose to use the selected language"""
     languageCode = call.data[
         len("language=") :
@@ -70,7 +107,7 @@ async def implemenLanguage(call):
     await call.message.answer(question, reply_markup=markup)
 
 
-async def choseLanguage(call):
+async def choose_language_from_available(call):
     """Makes a row with possible languages by keys from file."""
     markup = await kb.languageOption()
     await call.message.answer(call.data, reply_markup=markup)
@@ -87,7 +124,7 @@ async def existanceCheck(id, now):
         conn.commit()
 
 
-async def saveLanguage(call):
+async def save_language_in_DB(call):
     """Save the selected language"""
     id = int(call.message.chat.id)
     languageCode = call.data.split("=")[1]
@@ -105,14 +142,7 @@ async def saveLanguage(call):
     )  # languagePack back a List si in 1 request I add a [0].
 
 
-async def languageCoge_check(id):
-    """Check whether a user has already set a default language preference in the bot or not."""
-    cursor.execute("SELECT language_code FROM users WHERE id = ?;", (id,))
-    result = cursor.fetchone()
-    return result[0] if result else None
-
-
-async def first_nameCheck(message):
+async def first_name_check(message):
     """checks if the user is registered in the database."""
     id = int(message.chat.id)
     cursor.execute("SELECT first_name FROM users WHERE id = ?;", (id,))
@@ -175,20 +205,13 @@ async def ask_email(message, state):
     await message.answer(ask_for_email)
 
 
-async def language_code_from_state(state):
-    """Extract language code"""
-    data = await state.get_data()
-    first_name = data.get("first_name")
-    language_code = data.get("language_code")
-    return language_code
-
-
 async def end_registration(message, state):
     """extract all data from state and add it in to DB"""
     data = await state.get_data()
     first_name = data.get("first_name")
     last_name = data.get("last_name")
     phone_number = data.get("phone_number")
+    # Prepare the telephone number to save in DB
     phone_number = await only_numbers(phone_number)
     phone_number = int(phone_number)
     email = data.get("email")
@@ -204,7 +227,7 @@ async def end_registration(message, state):
 
 
 async def send_registration_confirmation_message(message):
-    """Send a messge with thanks for registration"""
+    """Send a message with thanks for registration"""
     # takes contact from DB
     id = int(message.chat.id)
     cursor.execute(
@@ -229,7 +252,7 @@ async def send_registration_confirmation_message(message):
 async def is_contact_correct(message):
     """Send a confirm message with 2 options"""
     id = int(message.chat.id)
-    language_code = await languageCoge_check(id)
+    language_code = await language_coge_from_DB(id)
     question, markup = await kb.two_InlineKeyboardButton(
         language_code,
         "valid_contact",
@@ -265,7 +288,7 @@ async def thanks(obj):
     # Takes a language from state
     message = await adapt_to_message(obj)
     chat_id = int(message.chat.id)
-    language_code = await languageCoge_check(chat_id)
+    language_code = await language_coge_from_DB(chat_id)
     thanks = await translate_text(language_code, "thanks")
     await message.answer(thanks)
 
@@ -276,42 +299,78 @@ async def registration_booking(message, language_code):
     await message.answer(go_reg)
 
 
+async def ask_for_specialist(message, language_code):
+    """Propose to choose the specialist"""
+    ask_specialist = await translate_text(language_code, "ask_specialist")
+    keyboards = await kb.one_button("1")
+    await message.answer(ask_specialist, reply_markup=keyboards)
 
 
 async def specialist_name(language_code, message):
-    '''Send the name of specialist'''
+    """Send the name of specialist"""
     specialist_name = await translate_text(language_code, "specialist_name")
     await message.answer(specialist_name)
-    await chose_procedure_propose(language_code, message)
-async def chose_procedure_propose(language_code, message):
+
+
+async def chose_massage_procedure_propose(language_code, message):
+    '''Send the massage options'''
     chose_procedure = await translate_text(language_code, "chose_procedure")
     await message.answer(chose_procedure)
-    # #TODO: use a  loop and str 'time_act' + str(i) and JSON makes the bellow
-    # act1, price_act1, time_act1 = await translate_text(language_code, ["act1", "price_act1", "time_act1"])
-    # act2, price_act2, time_act2 = await translate_text(language_code, ["act2", "price_act2", "time_act2"])
-    # act3, price_act3, time_act3 = await translate_text(language_code, ["act3", "price_act3", "time_act3"])
-    # act4, price_act4, time_act4 = await translate_text(language_code, ["act4", "price_act4", "time_act4"])
-    # act5, price_act5, time_act5 = await translate_text(language_code, ["act5", "price_act5", "time_act5"])
-    #
-    # propose =   "/1 "+ act1+ price_act1+"\t"+ time_act1+ " \n"+\
-    #             "/2 "+ act2+ price_act2+"\t"+ time_act2+ " \n"+\
-    #             "/3 "+ act3+ price_act3+"\t"+ time_act3+ " \n"+\
-    #             "/4 "+ act4+ price_act4+"\t"+ time_act4+ " \n"+\
-    #             "/5 "+ act5+ price_act5+"\t"+ time_act5
+
     n = 5
-    propose = ''
+    propose = ""
     keys = []
     # Load the text strings from the JSON file
     with open("text.json", "r", encoding="utf-8") as f:
         text = json.load(f)
         n += 1
         for i in range(1, n):
-            propose += f"/{i} " + text[language_code][f"act{i}"] + "\t" + text[language_code][f"time_act{i}"] + \
-                       text[language_code][f"min"] + "\t" + text[language_code][f"price_act{i}"] + text[language_code][
-                           f"currency"] + "\n\n"
-            keys.append(f"/{i}")
+            propose += (
+                f"{i} "
+                + text[language_code][f"act{i}"]
+                + "\t"
+                + text[language_code][f"time_act{i}"]
+                + text[language_code][f"min"]
+                + "\t"
+                + text[language_code][f"price_act{i}"]
+                + text[language_code][f"currency"]
+                + "\n\n"
+            )
+            keys.append(f"{i}")
     keyboard = await kb.plural_buttons(keys)
     await message.answer(propose, reply_markup=keyboard)
+
+async def save_chosen_procedure(message, state, language_code):
+    '''Saves the chosen procedure into the state '''
+    # take a number of procedure
+    procedure_number=message.text[0]
+    # save it into state
+    await state.update_data(procedure_number=procedure_number)
+    # takes phrases in default language
+    description=f"act{procedure_number}_descr"
+    you_chose, description = await translate_text(language_code, ["you_chose",description])
+    # send message with chosen procedure
+    await message.answer(f"{you_chose}: {message.text}")
+    # send message with description of procedure
+    await message.answer(description)
+
+
+async def ask_for_location(message, language_code):
+    '''Propse to chose a place'''
+    place, keyboard = await kb.two_InlineKeyboardButton(language_code,"place","salon", "my_place","salon", "my_place",)
+    await message.answer(place,reply_markup=keyboard)
+
+
+# async def go_ask_for_location(message, state):
+#     '''create message that "No option has been selected." and go to chose an place'''
+#     # take the language code
+#     language_code = await language_code_give(message, state)
+#     # sand the message that nothing chosen
+#     no_choice = await translate_text(language_code,"no_choice")
+#     await message.answer(no_choice)
+#     await ask_for_location(message, language_code)
+#
+
 
 # async def agree_registration_in_booking(mesage,sate)
 #     language_code = await language_code_from_state()
@@ -328,3 +387,17 @@ async def chose_procedure_propose(language_code, message):
 #     keyboard = await kb.plusural_button(["hello","/start","win"])
 #
 #     await message.answer("question", reply_markup=keyboard)
+
+async def exit(obj, state):
+    message = await obj_processor(obj)
+    language_code = await language_code_give(message, state)
+    exit = await translate_text(language_code, "exit")
+    await message.answer(exit)
+    await state.finish()
+
+
+async def exit_button():
+    """Create a keyboard with one button"""
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
+    keyboard.add(types.KeyboardButton("/exit"))
+    return keyboard

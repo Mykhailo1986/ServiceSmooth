@@ -24,26 +24,26 @@ async def start(message=types.Message, state=FSMContext):
     """It greets the user, changes the default language, and then directs them to the registration process"""
     await message.answer("HI")
     # checks if the language is in the database. If not, the user is prompted to choose a language.
-    id = int(message.chat.id)
-    language_code = await fn.languageCoge_check(id)
+    language_code=await fn.language_code_give(message,state)
     if not language_code:
-        await languageLocal(message)
+        await language_start(message)
 
     # TODO: Make run code below is only executed after the previous code has finished running
     # checks if the user is registered in the database. If not, the user is prompted to register.
     # first_name = await fn.first_nameCheck(message)
     # if not first_name:
     #      await registration_start(message,state)
-
-
+# @dp.message_handler(commands=["exit"], state="*")
+# async def exit(message=types.Message, state=FSMContext):
+#     await fn.exit(message.state)
+#     await start(message,state)
 @dp.message_handler(commands=["reg"], state="*")
 async def registration_start(message=types.Message, state=FSMContext):
     """Start registration form"""
     # checks if the language is in the database. If not, the user is prompted to choose a language.
-    id = int(message.chat.id)
-    language_code = await fn.languageCoge_check(id)
+    language_code=await fn.language_code_give(message,state)
     if not language_code:
-        await languageLocal(message)
+        await language_start(message)
     # Propose to send a contact from user
     await fn.ask_contact(message, language_code)
     # Create a form for input the names or implement it automatically
@@ -54,50 +54,75 @@ async def registration_start(message=types.Message, state=FSMContext):
     await ST.FirstRegistration.F_NAME_REG.set()
     await state.update_data(language_code=language_code)
 
-
-@dp.message_handler(commands=["book"], state="*")
-async def booking(message=types.Message, state=FSMContext):
-    # checks if the language is in the database. If not, the user is prompted to choose a language.
-    id = int(message.chat.id)
-    language_code = await fn.languageCoge_check(id)
-    if not language_code:
-        await languageLocal(message)
-    # checks if User allredy registrated?
-    first_name = await fn.first_nameCheck(message)
-    if not first_name:
-         await registration_start(message,state)
-    else:
-        await fn.registration_booking(message,language_code)
-    await ST.Booking.START_BOOK.set()
-    await state.update_data(language_code=language_code)
-    await spsialist1(message,state)
-
-
-@dp.message_handler(commands=["1"], state=ST.Booking.START_BOOK)
-async def spsialist1(message=types.Message, state=FSMContext):
-    id = int(message.chat.id)
-    language_code = await fn.languageCoge_check(id)
-    if not language_code:
-        await languageLocal(message)
-    await fn.specialist_name(language_code, message)
-    # await fn.chose_procedure_propose(language_code, message)
-@dp.message_handler(commands=["propos"], state="*")
-async def Proposition(message=types.Message, state=FSMContext):
-    id = int(message.chat.id)
-    language_code = await fn.languageCoge_check(id)
-    if not language_code:
-        await languageLocal(message)
-
-    await fn.chose_procedure_propose(language_code, message)
-
 """
 Booking
 BEGINING
 """
+@dp.message_handler(commands=["book"], state="*")
+async def booking(message=types.Message, state=FSMContext):
+    # checks if the language is in the database. If not, the user is prompted to choose a language.
+    language_code=await fn.language_code_give(message,state)
+    if not language_code:
+        await language_start(message)
+    # checks if User already registered?
+    first_name = await fn.first_name_check(message)
+    if not first_name:
+         await registration_start(message,state)
+    else:
+        await fn.registration_booking(message,language_code)
+    # Open the booking state and send in a language_code
+    await ST.Booking.START_BOOK.set()
+    await state.update_data(language_code=language_code)
+#     # propose to chose specialist
+#     await fn.ask_for_specialist(message, language_code)
+#
+# @dp.message_handler(lambda c : c.text== ("1"), state=ST.Booking.START_BOOK )
+# async def spcialist_cosen(message=types.Message, state=FSMContext):
+#     '''Mesage the shoisen specialist'''
+#     language_code=await fn.language_code_give(message,state)
+#     await fn.specialist_name(language_code, message)
+#     # Save the specialist and kind of procedure
+#     await state.update_data(kind="massage")
+#     await state.update_data(specialict="1")
+#     # Run the messege with list of procedure
+    await fn.chose_massage_procedure_propose(language_code, message)
+    await ST.Booking.SEL_Rroc.set()
 
-@dp.message_handler(commands=["1"], state="ST.Booking.START_BOOK")
-async def firt_option(message=types.Message, state=FSMContext):
-    await message.answer("виберете процедуру:")
+
+@dp.message_handler(lambda c: any(str(num) in c.text for num in range(1, 5+1)),state=ST.Booking.SEL_Rroc )
+async def procedure_chosen(message=types.Message, state=FSMContext):
+    # take the language code
+    language_code = await fn.language_code_give(message, state)
+    # save the number chosen procedure
+    await fn.save_chosen_procedure(message, state, language_code)
+    # sand a massage the propose to choose a place
+    await fn.ask_for_location(message,language_code)
+
+@dp.message_handler(state=ST.Booking.SEL_Rroc )
+async def procedure_chosen2(message=types.Message, state=FSMContext):
+    language_code = await fn.language_code_give(message, state)
+    await fn.chose_massage_procedure_propose(language_code, message)
+
+@dp.callback_query_handler(lambda c: c.data == "salon",state=ST.Booking.SEL_Rroc)
+async def salon(call, state=FSMContext):
+    '''give an information about location of salon'''
+    await call.message.answer("У HАС")
+    await state.update_data(place=call.data)
+    await ST.Booking.SEL_Place.set()
+  
+    await bot.send_location(call.message.chat.id, latitude= 50.452951, longitude= 30.523853,proximity_alert_radius=60)
+
+
+
+
+@dp.callback_query_handler(lambda c: c.data == "my_place",state=ST.Booking.SEL_Rroc)
+async def salon(call, state=FSMContext):
+    '''give an information about location of salon'''
+    await state.update_data(place=call.data)
+    await call.message.answer("У BАС")
+    await ST.Booking.SEL_Place.set()
+
+
 
 
 """
@@ -238,26 +263,26 @@ Language chose
 BEGINING
 """
 @dp.message_handler(commands=["lang"], state="*")
-async def languageLocal(message=types.Message, state=ST.ServiseSmoothState.CHOOSE_LANGUAGE):
+async def language_start(message=types.Message, state=ST.ServiseSmoothState.CHOOSE_LANGUAGE):
     """Propose to use the local language"""
-    await fn.languageLocal(message)
+    await fn.propose_local_language(message)
     await ST.ServiseSmoothState.CHOOSE_LANGUAGE.set()
 
 
 @dp.callback_query_handler(
     lambda c: c.data == "chose other language", state=ST.ServiseSmoothState.CHOOSE_LANGUAGE
 )
-async def choseLanguage(call):
+async def pick_language(call):
     """Make a row with possible languages by keys from file"""
-    await fn.choseLanguage(call)
+    await fn.choose_language_from_available(call)
 
 
 @dp.callback_query_handler(
     lambda c: c.data.startswith("language="), state=ST.ServiseSmoothState.CHOOSE_LANGUAGE
 )
-async def implemenLanguage(call):
+async def implement_language(call):
     """Propose to use the selected language"""
-    await fn.implemenLanguage(call)
+    await fn.implement_language(call)
 
 
 @dp.callback_query_handler(
@@ -265,7 +290,7 @@ async def implemenLanguage(call):
 )
 async def saveLanguage(call, state=ST.ServiseSmoothState.CHOOSE_LANGUAGE):
     """Save the selected language"""
-    await fn.saveLanguage(call)
+    await fn.save_language_in_DB(call)
     await state.finish()
 
 """
