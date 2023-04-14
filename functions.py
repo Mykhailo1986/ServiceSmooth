@@ -3,12 +3,13 @@ import re
 import json
 import keyboards as kb
 import sqlite3
-
+import datetime
 
 # Connect to the database
 conn = sqlite3.connect("ss.db")
 cursor = conn.cursor()
-from datetime import datetime
+# from datetime import datetime
+
 
 
 async def translate_text(language_code, request):
@@ -128,7 +129,7 @@ async def save_language_in_DB(call):
     """Save the selected language"""
     id = int(call.message.chat.id)
     languageCode = call.data.split("=")[1]
-    now = int(datetime.now().strftime("%d%m%Y%H%M"))
+    now = int(datetime.datetime.now().strftime("%d%m%Y%H%M"))
     # check if the user already in base.
     await existanceCheck(id, now)
     # Save the language.
@@ -359,6 +360,70 @@ async def ask_for_location(message, language_code):
     '''Propse to chose a place'''
     place, keyboard = await kb.two_InlineKeyboardButton(language_code,"place","salon", "my_place","salon", "my_place",)
     await message.answer(place,reply_markup=keyboard)
+
+async def our_contact(bot,obj,state):
+    '''give an information about location of salon'''
+    language_code = await language_code_from_state(state)
+    message =await obj_processor(obj)
+    # send a message to user
+    await message.answer("У HАС")
+    # # send a photo to user
+    # await bot.send_photo(message.chat.id, photo=open('media/pics/kitten1.jpg', "rb"), caption="Котик")
+    # # send a location to user
+    # await bot.send_location(message.chat.id, latitude= 50.452951, longitude= 30.523853,proximity_alert_radius=60)
+
+async def ask_location(call,state):
+    '''Ask an information about location '''
+    language_code = await language_code_from_state(state)
+    send_location, ask_for_location = await translate_text(
+        language_code, ["send_location", "ask_for_location"]
+    )
+    markup_request = await kb.your_location(send_location)
+    await call.message.answer(ask_for_location, reply_markup=markup_request)
+
+def fifteen_days(n):
+    '''Return 15 days from todey exept rest_days'''
+
+    current_date = datetime.datetime.now().date()
+    dates = [current_date + datetime.timedelta(days=x) for x in range(n)]
+
+    # rest_day = datetime.date(2023, 4, 16)  # example date to exclude
+    rest_days = [datetime.date(2023, 4, 16), datetime.date(2023, 4, 17)]
+    for rest_day in rest_days:
+        if rest_day in dates:
+            dates.remove(rest_day)
+    return dates
+
+def get_date(number):
+    '''takes a number as an input and returns a date based on whether the number is greater or less than the current date's day'''
+    today = datetime.datetime.today()
+    if number > today.day:
+        return today.replace(day=number).date()
+    else:
+        next_month = today.replace(day=28) + datetime.timedelta(days=4)
+        return next_month.replace(day=number).date()
+async def ask_for_data(obj,state):
+    '''Thanks for address and ask to chose the date'''
+    message = await obj_processor(obj)
+    language_code = await language_code_from_state(state)
+    thanks, ask_for_date = await translate_text(
+        language_code, ["thanks", "ask_for_date"]
+    )
+    # send thanks
+    await message.answer(thanks)
+    # make an 15 keys
+    n=15
+    dates = fifteen_days(n)
+    while len(dates) < 15:
+        n+=1
+        dates = fifteen_days(n)
+
+    formatted_dates = [date.strftime("%d,%m") for date in dates]
+    markup_request = await kb.plural_buttons(formatted_dates,5)
+    # send message with 15 buttons of the day
+    await message.answer(ask_for_date, reply_markup=markup_request)
+
+
 
 
 # async def go_ask_for_location(message, state):

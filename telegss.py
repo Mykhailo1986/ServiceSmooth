@@ -86,10 +86,10 @@ async def booking(message=types.Message, state=FSMContext):
 #     await state.update_data(specialict="1")
 #     # Run the messege with list of procedure
     await fn.chose_massage_procedure_propose(language_code, message)
-    await ST.Booking.SEL_Rroc.set()
+    await ST.Booking.SEL_Proc.set()
 
 
-@dp.message_handler(lambda c: any(str(num) in c.text for num in range(1, 5+1)),state=ST.Booking.SEL_Rroc )
+@dp.message_handler(lambda c: any(str(num) in c.text for num in range(1, 5+1)),state=ST.Booking.SEL_Proc )
 async def procedure_chosen(message=types.Message, state=FSMContext):
     # take the language code
     language_code = await fn.language_code_give(message, state)
@@ -98,32 +98,55 @@ async def procedure_chosen(message=types.Message, state=FSMContext):
     # sand a massage the propose to choose a place
     await fn.ask_for_location(message,language_code)
 
-@dp.message_handler(state=ST.Booking.SEL_Rroc )
+@dp.message_handler(state=ST.Booking.SEL_Proc )
 async def procedure_chosen2(message=types.Message, state=FSMContext):
     language_code = await fn.language_code_give(message, state)
     await fn.chose_massage_procedure_propose(language_code, message)
 
-@dp.callback_query_handler(lambda c: c.data == "salon",state=ST.Booking.SEL_Rroc)
+@dp.callback_query_handler(lambda c: c.data == "salon",state=ST.Booking.SEL_Proc)
 async def salon(call, state=FSMContext):
     '''give an information about location of salon'''
-    await call.message.answer("У HАС")
+    # send a place into state
     await state.update_data(place=call.data)
-    await ST.Booking.SEL_Place.set()
-  
-    await bot.send_location(call.message.chat.id, latitude= 50.452951, longitude= 30.523853,proximity_alert_radius=60)
+    await ST.Booking.SEL_Date.set()
+    #send our contact information
+    await fn.our_contact(bot, call, state)
+    await fn.ask_for_data(call, state)
 
 
-
-
-@dp.callback_query_handler(lambda c: c.data == "my_place",state=ST.Booking.SEL_Rroc)
-async def salon(call, state=FSMContext):
-    '''give an information about location of salon'''
+@dp.callback_query_handler(lambda c: c.data == "my_place",state=ST.Booking.SEL_Proc)
+async def my_place(call, state=FSMContext):
+    '''Ask an information about location '''
+    # send a place into state
     await state.update_data(place=call.data)
-    await call.message.answer("У BАС")
-    await ST.Booking.SEL_Place.set()
+    await ST.Booking.SEL_Proc.set()
+    # ask for coordinate
+    await fn.ask_location(call, state)
+
+@dp.message_handler(
+    content_types=types.ContentType.LOCATION, state=ST.Booking.SEL_Proc
+)
+async def extract_location_from_contact(message: types.Message, state=FSMContext):
+    # extract the location data from the message
+    longitude = message.location.longitude
+    latitude = message.location.latitude
+    # update the chat's state with the location data
+    await state.update_data(latitude=latitude, longitude=longitude)
+    # send a confirmation message
+    await fn.ask_for_data(message, state)
 
 
+@dp.message_handler( state=ST.Booking.SEL_Proc)
+async def take_address_from_message(message: types.Message, state=FSMContext):
+    '''Take and save in state address from user inputs'''
+    address=message.text
+    await state.update_data(address=address)
+    await fn.ask_for_data(message, state)
 
+
+@dp.message_handler(commands=["l"], state="*")
+async def test(message=types.Message, state=FSMContext):
+    await fn.ask_for_data(message, state)
 
 """
 Boking

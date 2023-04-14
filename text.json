@@ -29,6 +29,11 @@
         "place" : "Please, choose a place of procedure,\n in your the price will increase by 10€",
         "my_place": "My place",
         "salon" : "Salon",
+        "send_location" : "My current position is",
+        "ask_for_location" : "You print where do you prefer to receive the procedure. Or if you already at place simply push 'My current position is' ",
+        "ask_for_date" : "What date you prefer, you can input manually",
+
+
 
         "act0" :  "Procedure 0 ",
         "price_act0" : " 36 &",

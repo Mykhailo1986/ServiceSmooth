@@ -124,9 +124,9 @@ async def one_button(button_text):
     keyboard.add(types.KeyboardButton(button_text))
     return keyboard
 
-async def plural_buttons(request):
+async def plural_buttons(request,in_row=3):
 
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True, row_width=in_row)
     keyboard.add(
         *[
             types.KeyboardButton(button_text)
@@ -143,8 +143,8 @@ async def your_phone_number(send_contact):
     return markup_request
 
 
-# async def your_phone_number():
-#     '''ask for phone nomber'''
-#     markup_request = types.ReplyKeyboardMarkup(resize_keyboard=True,one_time_keyboard=True).add(
-#         types.KeyboardButton('Отправить свой контакт ☎️', request_contact=True))
-#     return markup_request
+async def your_location(send_location):
+    '''ask for your location'''
+    markup_request = types.ReplyKeyboardMarkup(resize_keyboard=True,one_time_keyboard=True).add(
+        types.KeyboardButton(send_location, request_location=True))
+    return markup_request
