@@ -10,6 +10,12 @@ conn = sqlite3.connect("ss.db")
 cursor = conn.cursor()
 # from datetime import datetime
 
+busy_time = {
+    "morning": {"busy_start": datetime.time(0, 0), "busy_end": datetime.time(8, 0)},
+    "night": {"busy_start": datetime.time(18, 0), "busy_end": datetime.time(23, 59)},
+}
+
+duration = 90  # in minutes
 
 
 async def translate_text(language_code, request):
@@ -37,7 +43,7 @@ async def validate_email(email):
     return bool(re.match(pattern, email))
 
 
-async def only_numbers(text_with_nombers):
+def only_numbers(text_with_nombers):
     """Extract only the numbers from a string"""
     numbers = re.findall("\d+", text_with_nombers)
     phone_number = "".join(numbers)
@@ -213,7 +219,7 @@ async def end_registration(message, state):
     last_name = data.get("last_name")
     phone_number = data.get("phone_number")
     # Prepare the telephone number to save in DB
-    phone_number = await only_numbers(phone_number)
+    phone_number = only_numbers(phone_number)
     phone_number = int(phone_number)
     email = data.get("email")
     id = int(message.chat.id)
@@ -314,7 +320,7 @@ async def specialist_name(language_code, message):
 
 
 async def chose_massage_procedure_propose(language_code, message):
-    '''Send the massage options'''
+    """Send the massage options"""
     chose_procedure = await translate_text(language_code, "chose_procedure")
     await message.answer(chose_procedure)
 
@@ -341,15 +347,18 @@ async def chose_massage_procedure_propose(language_code, message):
     keyboard = await kb.plural_buttons(keys)
     await message.answer(propose, reply_markup=keyboard)
 
+
 async def save_chosen_procedure(message, state, language_code):
-    '''Saves the chosen procedure into the state '''
+    """Saves the chosen procedure into the state"""
     # take a number of procedure
-    procedure_number=message.text[0]
+    procedure_number = message.text[0]
     # save it into state
     await state.update_data(procedure_number=procedure_number)
     # takes phrases in default language
-    description=f"act{procedure_number}_descr"
-    you_chose, description = await translate_text(language_code, ["you_chose",description])
+    description = f"act{procedure_number}_descr"
+    you_chose, description = await translate_text(
+        language_code, ["you_chose", description]
+    )
     # send message with chosen procedure
     await message.answer(f"{you_chose}: {message.text}")
     # send message with description of procedure
@@ -357,14 +366,22 @@ async def save_chosen_procedure(message, state, language_code):
 
 
 async def ask_for_location(message, language_code):
-    '''Propse to chose a place'''
-    place, keyboard = await kb.two_InlineKeyboardButton(language_code,"place","salon", "my_place","salon", "my_place",)
-    await message.answer(place,reply_markup=keyboard)
+    """Propse to chose a place"""
+    place, keyboard = await kb.two_InlineKeyboardButton(
+        language_code,
+        "place",
+        "salon",
+        "my_place",
+        "salon",
+        "my_place",
+    )
+    await message.answer(place, reply_markup=keyboard)
 
-async def our_contact(bot,obj,state):
-    '''give an information about location of salon'''
+
+async def our_contact(bot, obj, state):
+    """give an information about location of salon"""
     language_code = await language_code_from_state(state)
-    message =await obj_processor(obj)
+    message = await obj_processor(obj)
     # send a message to user
     await message.answer("У HАС")
     # # send a photo to user
@@ -372,8 +389,9 @@ async def our_contact(bot,obj,state):
     # # send a location to user
     # await bot.send_location(message.chat.id, latitude= 50.452951, longitude= 30.523853,proximity_alert_radius=60)
 
-async def ask_location(call,state):
-    '''Ask an information about location '''
+
+async def ask_location(call, state):
+    """Ask an information about location"""
     language_code = await language_code_from_state(state)
     send_location, ask_for_location = await translate_text(
         language_code, ["send_location", "ask_for_location"]
@@ -381,12 +399,11 @@ async def ask_location(call,state):
     markup_request = await kb.your_location(send_location)
     await call.message.answer(ask_for_location, reply_markup=markup_request)
 
-def fifteen_days(n):
-    '''Return 15 days from todey exept rest_days'''
 
+def fifteen_days(n):
+    """Return 15 days from todey exept rest_days"""
     current_date = datetime.datetime.now().date()
     dates = [current_date + datetime.timedelta(days=x) for x in range(n)]
-
     # rest_day = datetime.date(2023, 4, 16)  # example date to exclude
     rest_days = [datetime.date(2023, 4, 16), datetime.date(2023, 4, 17)]
     for rest_day in rest_days:
@@ -394,37 +411,262 @@ def fifteen_days(n):
             dates.remove(rest_day)
     return dates
 
+
 def get_date(number):
-    '''takes a number as an input and returns a date based on whether the number is greater or less than the current date's day'''
+    """takes a number as an input and returns a date based on whether the number is greater or less than the current date's day"""
     today = datetime.datetime.today()
     if number > today.day:
-        return today.replace(day=number).date()
+        return today.replace(day=number).strftime("%d-%m-%Y")
     else:
         next_month = today.replace(day=28) + datetime.timedelta(days=4)
-        return next_month.replace(day=number).date()
-async def ask_for_data(obj,state):
-    '''Thanks for address and ask to chose the date'''
+        return next_month.replace(day=number).strftime("%d-%m-%Y")
+
+
+def get_date_with_month(four_diget):
+    # Makes from 4 digits the data
+    date_string = four_diget
+    year = datetime.datetime.now().year
+    day = int(date_string[:2])
+    month = int(date_string[2:])
+    year = (
+        datetime.datetime.now().year
+        if month >= datetime.datetime.now().month
+        else datetime.datetime.now().year + 1
+    )
+    date = datetime.date(year=year, month=month, day=day)
+    formatted_date = date.strftime("%d-%m-%Y")
+    return formatted_date
+
+
+def data_formatter(day):
+    """Formatted date in to standard view"""
+    try:
+        number = only_numbers(day)
+        if len(day) < 3:
+            day = get_date(int(number))
+        elif len(day) >= 3:
+            if len(number) == 4:
+                day = get_date_with_month(number)
+            elif len(number) < 3:
+                day = get_date(int(number))
+            else:
+                return None
+    except ValueError:
+        return None
+    return day
+
+
+async def ask_for_data(obj, state):
+    """Thanks for the address and ask for chose the date"""
     message = await obj_processor(obj)
     language_code = await language_code_from_state(state)
-    thanks, ask_for_date = await translate_text(
-        language_code, ["thanks", "ask_for_date"]
-    )
-    # send thanks
-    await message.answer(thanks)
-    # make an 15 keys
-    n=15
+    ask_for_date = await translate_text(language_code, "ask_for_date")
+
+    # make 15 keys
+    n = 15
     dates = fifteen_days(n)
     while len(dates) < 15:
-        n+=1
+        n += 1
         dates = fifteen_days(n)
 
-    formatted_dates = [date.strftime("%d,%m") for date in dates]
-    markup_request = await kb.plural_buttons(formatted_dates,5)
+    formatted_dates = [date.strftime("%d-%m") for date in dates]
+    markup_request = await kb.plural_buttons(formatted_dates, 5)
     # send message with 15 buttons of the day
     await message.answer(ask_for_date, reply_markup=markup_request)
 
 
+async def day_selector(message, state):
+    """hear and change the recived date in correct format save it  and ask for time"""
+    # Import message text
+    language_code = await language_code_from_state(state)
+    incorrect_data = await translate_text(language_code, "incorrect_data")
+    # change Time format
+    day = data_formatter(message.text)
+    if not day:
+        await message.reply(incorrect_data)
+        await ask_for_data(message, state)
+        return None
+    # save time format in state
+    await state.update_data(day=day)
 
+
+async def ask_for_time(message, state):
+    # Import message text
+    language_code = await language_code_from_state(state)
+    ask_for_time = await translate_text(language_code, "ask_for_time")
+    # change Time format
+    times = give_possible_time(busy_time, duration)
+    formatted_times = [time.strftime("%H:%M") for time in times]
+    markup_request = await kb.plural_buttons(formatted_times, 5)
+    await message.answer(ask_for_time, reply_markup=markup_request)
+
+
+def time_formatter(text):
+    """make inputed text in datatime format"""
+    number = only_numbers(text)
+    if len(number) == 0:
+        return None
+    elif len(number) < 3:
+        hours = number
+        if "pm" in text.lower():
+            hours = str(int(number) + 12)
+        minutes = "00"
+    elif len(number) == 3:
+        hours = number[0]
+        if "pm" in text.lower():
+            hours = str(int(hours) + 12)
+        minutes = number[-2:]
+    elif len(number) == 4:
+        hours = number[:2]
+        minutes = number[-2:]
+    elif len(number) > 4:
+        return None
+
+    if int(hours) > 24 or int(minutes) > 60:
+        return None
+
+    time_format = datetime.time(hour=int(hours), minute=int(minutes))
+    return time_format
+
+
+def free_time_between_appointments(busy_time, start):
+    """Create the gap between of one appointment and begin of other"""
+    # Find the gap begin
+    gap_start = datetime.time.max
+    for key in busy_time.keys():
+        busy_end = busy_time[key]["busy_end"]
+        if busy_end < gap_start and busy_end > start:
+            gap_start = busy_end
+    # Find the gap and
+    gap_end = datetime.time.max
+    for key in busy_time.keys():
+        busy_start = busy_time[key]["busy_start"]
+        if busy_start > gap_start and busy_start < gap_end:
+            gap_end = busy_start
+    return (gap_start, gap_end)
+
+
+def gap_duration_compare(gap, duration):
+    """Compare the gap and the duration, return True if it fits"""
+    gap_start, gap_end = gap
+    duration = datetime.timedelta(minutes=duration)
+    gap = datetime.datetime.combine(
+        datetime.date.today(), gap_end
+    ) - datetime.datetime.combine(datetime.date.today(), gap_start)
+    if duration < gap:
+        return True
+
+
+def available_time_slots(busy_time, duration):
+    """Add function to generate available time slots based on busy times and required duration."""
+    gaps = []
+    start = datetime.time.min
+    while True:
+        gap = free_time_between_appointments(busy_time, start)
+        if gap_duration_compare(gap, duration):
+            gaps.append(gap)
+        # Move to the next gap
+        gap_start, gap_end = gap
+        start = gap_end
+        if gap_end == datetime.time.max:
+            break
+    return gaps
+
+
+def give_possible_time(busy_time, duration):
+    """return possible time for buttons"""
+    gaps = available_time_slots(busy_time, duration)
+    duration = datetime.timedelta(minutes=duration)
+
+    # Generate a list of all possible times with given constraints
+    hours = []
+    for hour in range(0, 24):
+        time = datetime.time(hour, 0)
+        hours.append(time)
+
+    times = []
+    for gap in gaps:
+        start_time, end_time = gap
+        # add first possible time
+        times.append(start_time)
+        current_time = datetime.datetime.combine(datetime.date.today(), start_time)
+        end_datetime = (
+            datetime.datetime.combine(datetime.date.today(), end_time) - duration
+        )
+        # add other times with exact hours
+        while current_time <= end_datetime - datetime.timedelta(minutes=15):
+            current_time += datetime.timedelta(minutes=15)
+            if current_time.time() in hours:
+                times.append(current_time.time())
+        # add last possible time
+        times.append(end_datetime.time())
+    return times
+
+
+async def time_selector(message, state):
+    """hear and change the recived time in correct format save it  and ask for time"""
+    # Import message text
+    language_code = await language_code_from_state(state)
+    incorrect_time = await translate_text(language_code, "incorrect_time")
+    # change Time format
+    time_appointment = time_formatter(message.text)
+    if not time_appointment:
+        await message.reply(incorrect_time)
+        await ask_for_time(message, state)
+        return None
+    # save time format in state
+    await state.update_data(time_appointment=time_appointment)
+    await thanks(message)
+
+
+#
+#     # Calculate the start time for the next available slot
+#     start_time = datetime.datetime.combine(datetime.date.today(), last_busy_end) + datetime.timedelta(minutes=duration)
+#
+#     # Create a list of available time slots
+#     available_times = []
+#     for hour in range(start_time.hour, 24):
+#         start = datetime.datetime.combine(datetime.date.today(), datetime.time(hour=hour, minute=0, second=0))
+#         end = start + datetime.timedelta(minutes=duration)
+#         overlaps = False
+#         for key in busy_time.keys():
+#             busy_start = busy_time[key]["busy_start"]
+#             busy_end = busy_time[key]["busy_end"]
+#             busy_range = (busy_start, busy_end)
+#             slot_range = (start.time(), end.time())
+#             if overlap(busy_range, slot_range):
+#                 overlaps = True
+#                 break
+#         if not overlaps and end.time() <= busy_start:
+#             available_times.append((start.time(), end.time()))
+#
+#     return available_times
+#
+#
+# # Helper function to check if two time ranges overlap
+# def overlap(range1, range2):
+#     return not (range1[1] <= range2[0] or range2[1] <= range1[0])
+
+
+# get_available_times(busy_time, duration)
+
+# async def time_selector(message,state):
+#     #TODO:
+#     '''change the recived date in correct format save it  and ask for time '''
+#     # Import message text
+#     language_code = await language_code_from_state(state)
+#     incorrect_data, ask_for_time = await translate_text(
+#         language_code, ["incorrect_data", "ask_for_time"])
+#     # change Time format
+#
+#     time= time_formatter(message.text)
+#     if not day:
+#             await message.reply(incorrect_data)
+#             await ask_for_data(message, state)
+#             return None
+#     # save time format in state
+#     await state.update_data(day=day)
+#     await message.answer(ask_for_time)
 
 # async def go_ask_for_location(message, state):
 #     '''create message that "No option has been selected." and go to chose an place'''
@@ -452,6 +694,7 @@ async def ask_for_data(obj,state):
 #     keyboard = await kb.plusural_button(["hello","/start","win"])
 #
 #     await message.answer("question", reply_markup=keyboard)
+
 
 async def exit(obj, state):
     message = await obj_processor(obj)

@@ -32,7 +32,9 @@
         "send_location" : "My current position is",
         "ask_for_location" : "You print where do you prefer to receive the procedure. Or if you already at place simply push 'My current position is' ",
         "ask_for_date" : "What date you prefer, you can input manually",
-
+        "incorrect_data" :  "Please, input correct data format like 'DD-MM'",
+        "ask_for_time" : "Chose the time of appointment",
+        "incorrect_time" : "Please, input correct 24h. time format like 'hh-mm'",
 
 
         "act0" :  "Procedure 0 ",
