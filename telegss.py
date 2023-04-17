@@ -16,6 +16,13 @@ bot = Bot(os.getenv("TOKEN"))
 dp = Dispatcher(bot, storage=MemoryStorage())
 dp.middleware.setup(LoggingMiddleware())
 
+@dp.message_handler(commands=["state"],state="*")
+async def print_current_state(message: types.Message, state: FSMContext):
+    current_state = await state.get_state()
+    if current_state is None:
+        await message.answer("The current state is not defined.")
+    else:
+        await message.answer(f"The current state is {current_state}")
 
 @dp.message_handler(commands=["start"], state="*")
 async def start(message=types.Message, state=FSMContext):
@@ -113,7 +120,7 @@ async def procedure_chosen(message=types.Message, state=FSMContext):
 async def salon(call, state=FSMContext):
     """give an information about location of salon"""
     # send a place into state
-    await state.update_data(place=call.data)
+    await state.update_data(address='Salon', time_addition=0, out=0)
     await ST.Booking.SEL_Date.set()
     # send our contact information
     await fn.our_contact(bot, call, state)
@@ -123,11 +130,11 @@ async def salon(call, state=FSMContext):
 @dp.callback_query_handler(lambda c: c.data == "my_place", state=ST.Booking.SEL_Place)
 async def my_place(call, state=FSMContext):
     """Ask an information about location"""
-    # send a place into state
-    await state.update_data(place=call.data)
+
     await ST.Booking.SEL_Place.set()
     # ask for coordinate
     await fn.ask_location(call, state)
+
 
 
 @dp.message_handler(content_types=types.ContentType.LOCATION, state=ST.Booking.SEL_Place)
@@ -136,7 +143,7 @@ async def extract_location_from_contact(message: types.Message, state=FSMContext
     longitude = message.location.longitude
     latitude = message.location.latitude
     # update the chat's state with the location data
-    await state.update_data(latitude=latitude, longitude=longitude)
+    await state.update_data(address=[latitude, longitude], time_addition=30, out=1)
     # send a confirmation message
     await fn.ask_for_data(message, state)
     await ST.Booking.SEL_Date.set()
@@ -146,7 +153,7 @@ async def extract_location_from_contact(message: types.Message, state=FSMContext
 async def take_address_from_message(message: types.Message, state=FSMContext):
     """Take and save in state address from user inputs"""
     address = message.text
-    await state.update_data(address=address)
+    await state.update_data(address=address, time_addition=30, out=1)
     await fn.ask_for_data(message, state)
     await ST.Booking.SEL_Date.set()
 

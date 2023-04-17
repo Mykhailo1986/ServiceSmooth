@@ -10,10 +10,8 @@ conn = sqlite3.connect("ss.db")
 cursor = conn.cursor()
 # from datetime import datetime
 
-# busy_time = {
-#     "morning": {"busy_start": datetime.time.min, "busy_end": datetime.time(8, 0)},
-#     "night": {"busy_start": datetime.time(18, 0), "busy_end": datetime.time.max},
-# }
+working_time = {"work_start" : datetime.time(8, 0), "work_end" : datetime.time(18, 0)}
+
 
 """FOR MAX prosedure search for n=5"""
 async def translate_text(language_code, request):
@@ -355,6 +353,7 @@ async def save_chosen_procedure(message, state, language_code):
     you_chose, description, duration = await translate_text(
         language_code, ["you_chose", description, f"time_act_1_{procedure_number}"]
     )
+
     duration = only_numbers(duration)
     await state.update_data(duration=int(duration))
     # send message with chosen procedure
@@ -506,6 +505,24 @@ async def ask_for_time(message, state):
     await message.answer(ask_for_time, reply_markup=markup_request)
 
 
+def busy_time_maker(day):
+    '''Takes the appointments from DB and create the dictionary with it for day'''
+    busy_time = {}
+
+    rows = cursor.execute("SELECT time, duration FROM appointments WHERE date=? AND confirm=1 ORDER BY time;", (day,))
+    rows = cursor.fetchall()
+    busy_time ["morning"]= {"busy_start": datetime.time.min, "busy_end": working_time["work_start"],}
+
+    for i, row in enumerate(rows):
+        appointment = {
+            "busy_start": datetime.datetime.strptime(row[0], "%H:%M").time(),
+            "busy_end": (datetime.datetime.strptime(row[0], "%H:%M") + datetime.timedelta(minutes=row[1] + 15)).time(),
+        }
+        busy_time[f"Appointment{i}"] = appointment
+
+    busy_time["night"]= {"busy_start": working_time["work_end"], "busy_end": datetime.time.max,}
+
+    return busy_time
 def time_formatter(text):
     """make inputed text in datatime format"""
     number = only_numbers(text)
@@ -534,8 +551,25 @@ def time_formatter(text):
     return time_format
 
 
+# def free_time_between_appointments(busy_time, start):
+#     """Create the gap between of one appointment and begin of other"""
+#
+#     # Find the gap begin
+#     gap_start = datetime.time.max
+#     for key in busy_time.keys():
+#         busy_end = busy_time[key]["busy_end"]
+#         if busy_end < gap_start and busy_end > start:
+#             gap_start = busy_end
+#     # Find the gap and
+#     gap_end = datetime.time.max
+#     for key in busy_time.keys():
+#         busy_start = busy_time[key]["busy_start"]
+#         if busy_start > gap_start and busy_start < gap_end:
+#             gap_end = busy_start
+#     return (gap_start, gap_end)
 def free_time_between_appointments(busy_time, start):
     """Create the gap between of one appointment and begin of other"""
+
     # Find the gap begin
     gap_start = datetime.time.max
     for key in busy_time.keys():
@@ -546,7 +580,7 @@ def free_time_between_appointments(busy_time, start):
     gap_end = datetime.time.max
     for key in busy_time.keys():
         busy_start = busy_time[key]["busy_start"]
-        if busy_start > gap_start and busy_start < gap_end:
+        if busy_start >= gap_start and busy_start < gap_end:
             gap_end = busy_start
     return (gap_start, gap_end)
 
@@ -566,21 +600,28 @@ def available_time_slots(busy_time, duration):
     """Add function to generate available time slots based on busy times and required duration."""
     gaps = []
     start = datetime.time.min
+
     while True:
         gap = free_time_between_appointments(busy_time, start)
         if gap_duration_compare(gap, duration):
+
             gaps.append(gap)
         # Move to the next gap
         gap_start, gap_end = gap
         start = gap_end
         if gap_end == datetime.time.max:
             break
+
     return gaps
+
+
+
 
 
 def give_possible_time(busy_time, duration):
     """return possible time for buttons"""
     gaps = available_time_slots(busy_time, duration)
+
     duration = datetime.timedelta(minutes=duration)
 
     # Generate a list of all possible times with given constraints
@@ -608,6 +649,18 @@ def give_possible_time(busy_time, duration):
             times.append(end_datetime.time())
     return times
 
+def check_time_slot_fit(start_time, duration, gaps):
+    '''Check if time is fit in gap'''
+    end_time = datetime.datetime.combine(datetime.date.today(), start_time) + datetime.timedelta(minutes=duration)
+    start_time = datetime.datetime.combine(datetime.date.today(), start_time)
+    for gap in gaps:
+        gap_start = datetime.datetime.combine(datetime.date.today(), gap[0])
+        gap_end = datetime.datetime.combine(datetime.date.today(), gap[1])
+        if start_time >= gap_start and end_time <= gap_end:
+            # No overlap, the time slot can fit into this gap
+            return True
+    # No gap can fit the time slot
+    return False
 
 async def time_selector(message, state):
     """hear and change the recived time in correct format save it  and ask for time"""
@@ -616,13 +669,30 @@ async def time_selector(message, state):
     incorrect_time = await translate_text(language_code, "incorrect_time")
     # change Time format
     time_appointment = time_formatter(message.text)
+
     if not time_appointment:
         await message.reply(incorrect_time)
         await ask_for_time(message, state)
-        return None
+
+    # take datta from state
+    data = await state.get_data()
+    day = data.get("day")
+    duration = data.get("duration")
+    time_addition = data.get("time_addition")
+    # calculate time
+    duration+=time_addition
+    busy_time = busy_time_maker(day)
+    gaps = available_time_slots(busy_time, duration)
+    # check if the time for fit in gap
+    if not check_time_slot_fit(time_appointment, duration, gaps):
+        await message.answer("Виберыть ынший час")
+        await ask_for_time(message, state)
+        time_appointment=None
+
     # save time format in state
     await state.update_data(time_appointment=time_appointment)
-    await thanks(message)
+
+
 
 
 async def approve_appointment(message, state):
@@ -631,12 +701,19 @@ async def approve_appointment(message, state):
     data = await state.get_data()
     day = data.get("day")
     time_appointment = data.get("time_appointment")
-    time_appointment = time_appointment.strftime("%H:%M")
+    try:
+        time_appointment = time_appointment.strftime("%H:%M")
+    except AttributeError:
+        return False
     procedure_number = data.get("procedure_number")
     address = data.get("address")
     place = data.get("place")
     specialist = data.get("specialist")
     kind = data.get("kind")
+    out = data.get("out")
+    duration= data.get("duration")
+    # time_addition it's time to get in to the place what client chose
+    time_addition= data.get("time_addition")
 
     # Import message text
     language_code = await language_code_from_state(state)
@@ -662,28 +739,23 @@ async def approve_appointment(message, state):
             "currency",
         ],
     )
-    # time_addition it's time to get in to the place what client chose
-    time_addition = 30
 
-    if address:
-        address = data.get("address")
-    elif place == "my_place":
-        latitude = data.get("latitude")
-        longitude = data.get("longitude")
-        address = f"{coordinates},latitude, longitude"
-    elif place == "salon":
-        address = salon_location
-        place_out = "0"
-        time_addition = 0
+
+
+
 
     # calculate price
     price = only_numbers(price)
     place_out = only_numbers(place_out)
-    price = str(int(price) + int(place_out))
+    price = int(price) + int(place_out)*out
 
     # calculate time
-    time_act = only_numbers(time_act)
-    takes_time = int(time_act) + time_addition
+
+    takes_time = duration + time_addition
+
+
+
+
     chat_id = int(message.chat.id)
     now = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
 
@@ -725,28 +797,9 @@ async def confirm_appointment(call, state):
     await call.message.answer(we_will_call.format(phone=str(phone)))
 
 
-def busy_time_maker(day):
-    '''Takes the appointments from DB and create the dictionary with it for day'''
-    busy_time = {
-        "morning": {"busy_start": datetime.time.min, "busy_end": datetime.time(8, 0)},
-        "night": {"busy_start": datetime.time(18, 0), "busy_end": datetime.time.max},
-    }
 
-    rows = cursor.execute("SELECT time, duration FROM appointments WHERE date=? AND confirm=1;", (day,))
-    rows = cursor.fetchall()
 
-    for i, row in enumerate(rows):
-        appointment = {
-            "busy_start": datetime.datetime.strptime(row[0], "%H:%M").time(),
-            "busy_end": (datetime.datetime.strptime(row[0], "%H:%M") + datetime.timedelta(minutes=row[1] + 15)).time(),
-        }
-        busy_time[f"Appointment{i}"] = appointment
-
-    # row = row[0]
-    print(busy_time)
-    return busy_time
-
-busy_time_maker('23-04-2023')
+# busy_time_maker('23-04-2023')
 #
 #     # Calculate the start time for the next available slot
 #     start_time = datetime.datetime.combine(datetime.date.today(), last_busy_end) + datetime.timedelta(minutes=duration)
