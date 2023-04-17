@@ -10,10 +10,10 @@ conn = sqlite3.connect("ss.db")
 cursor = conn.cursor()
 # from datetime import datetime
 
-busy_time = {
-    "morning": {"busy_start": datetime.time.min, "busy_end": datetime.time(8, 0)},
-    "night": {"busy_start": datetime.time(18, 0), "busy_end": datetime.time.max},
-}
+# busy_time = {
+#     "morning": {"busy_start": datetime.time.min, "busy_end": datetime.time(8, 0)},
+#     "night": {"busy_start": datetime.time(18, 0), "busy_end": datetime.time.max},
+# }
 
 """FOR MAX prosedure search for n=5"""
 async def translate_text(language_code, request):
@@ -494,9 +494,13 @@ async def ask_for_time(message, state):
     ask_for_time = await translate_text(language_code, "ask_for_time")
     # change Time format
     data = await state.get_data()
-
+    day=data.get("day")
     duration = data.get("duration")
+    busy_time=busy_time_maker(day)
     times = give_possible_time(busy_time, duration)
+    if times ==[]:
+        await message.answer('день занят')
+        return
     formatted_times = [time.strftime("%H:%M") for time in times]
     markup_request = await kb.plural_buttons(formatted_times, 5)
     await message.answer(ask_for_time, reply_markup=markup_request)
@@ -728,9 +732,21 @@ def busy_time_maker(day):
         "night": {"busy_start": datetime.time(18, 0), "busy_end": datetime.time.max},
     }
 
+    rows = cursor.execute("SELECT time, duration FROM appointments WHERE date=? AND confirm=1;", (day,))
+    rows = cursor.fetchall()
+
+    for i, row in enumerate(rows):
+        appointment = {
+            "busy_start": datetime.datetime.strptime(row[0], "%H:%M").time(),
+            "busy_end": (datetime.datetime.strptime(row[0], "%H:%M") + datetime.timedelta(minutes=row[1] + 15)).time(),
+        }
+        busy_time[f"Appointment{i}"] = appointment
+
+    # row = row[0]
+    print(busy_time)
     return busy_time
 
-
+busy_time_maker('23-04-2023')
 #
 #     # Calculate the start time for the next available slot
 #     start_time = datetime.datetime.combine(datetime.date.today(), last_busy_end) + datetime.timedelta(minutes=duration)
