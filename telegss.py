@@ -72,6 +72,7 @@ async def booking(message=types.Message, state=FSMContext):
         await registration_start(message, state)
     else:
         await fn.registration_booking(message, language_code)
+
     # Open the booking state and send in a language_code
     await ST.Booking.START_BOOK.set()
     await state.update_data(language_code=language_code)
@@ -102,15 +103,17 @@ async def procedure_chosen(message=types.Message, state=FSMContext):
     await fn.save_chosen_procedure(message, state, language_code)
     # sand a massage the propose to choose a place
     await fn.ask_for_location(message, language_code)
+    await ST.Booking.SEL_Place.set()
 
 
-@dp.message_handler(state=ST.Booking.SEL_Proc)
-async def procedure_chosen2(message=types.Message, state=FSMContext):
-    language_code = await fn.language_code_give(message, state)
-    await fn.chose_massage_procedure_propose(language_code, message)
+# @dp.message_handler(state=ST.Booking.SEL_Proc)
+# async def procedure_chosen2(message=types.Message, state=FSMContext):
+#     language_code = await fn.language_code_give(message, state)
+#     await fn.chose_massage_procedure_propose(language_code, message)
+#     await ST.Booking.SEL_Place.set()
 
 
-@dp.callback_query_handler(lambda c: c.data == "salon", state=ST.Booking.SEL_Proc)
+@dp.callback_query_handler(lambda c: c.data == "salon", state=ST.Booking.SEL_Place)
 async def salon(call, state=FSMContext):
     """give an information about location of salon"""
     # send a place into state
@@ -121,17 +124,17 @@ async def salon(call, state=FSMContext):
     await fn.ask_for_data(call, state)
 
 
-@dp.callback_query_handler(lambda c: c.data == "my_place", state=ST.Booking.SEL_Proc)
+@dp.callback_query_handler(lambda c: c.data == "my_place", state=ST.Booking.SEL_Place)
 async def my_place(call, state=FSMContext):
     """Ask an information about location"""
     # send a place into state
     await state.update_data(place=call.data)
-    await ST.Booking.SEL_Proc.set()
+    await ST.Booking.SEL_Place.set()
     # ask for coordinate
     await fn.ask_location(call, state)
 
 
-@dp.message_handler(content_types=types.ContentType.LOCATION, state=ST.Booking.SEL_Proc)
+@dp.message_handler(content_types=types.ContentType.LOCATION, state=ST.Booking.SEL_Place)
 async def extract_location_from_contact(message: types.Message, state=FSMContext):
     # extract the location data from the message
     longitude = message.location.longitude
@@ -143,7 +146,7 @@ async def extract_location_from_contact(message: types.Message, state=FSMContext
     await ST.Booking.SEL_Date.set()
 
 
-@dp.message_handler(state=ST.Booking.SEL_Proc)
+@dp.message_handler(state=ST.Booking.SEL_Place)
 async def take_address_from_message(message: types.Message, state=FSMContext):
     """Take and save in state address from user inputs"""
     address = message.text
@@ -163,12 +166,24 @@ async def take_day_from_user(message: types.Message, state=FSMContext):
 @dp.message_handler(state=ST.Booking.SEL_Time)
 async def take_time_from_user(message: types.Message, state=FSMContext):
     await fn.time_selector(message, state)
+    await fn.approve_appointment(message, state)
+    await ST.Booking.END_BOOK.set()
+@dp.callback_query_handler(
+    lambda c: c.data == "book again", state=ST.Booking.END_BOOK
+)
+async def booking_again(call,state=FSMContext):
+    language_code= await fn.language_code_give(call,state)
+    message=call.message
+    await fn.chose_massage_procedure_propose(language_code, message)
+    await ST.Booking.SEL_Proc.set()
 
+@dp.callback_query_handler(
+    lambda c: c.data == "confirm", state=ST.Booking.END_BOOK
+)
+async def confirm_appointment(call, state=FSMContext):
 
-@dp.message_handler(commands=["l"], state="*")
-async def test(message=types.Message, state=FSMContext):
-    await fn.ask_for_data(message, state)
-
+    await fn.confirm_appointment(call)
+    await state.finish()
 
 """
 Boking

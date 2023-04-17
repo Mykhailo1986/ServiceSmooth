@@ -35,11 +35,16 @@
         "incorrect_data" :  "Please, input correct data format like 'DD-MM'",
         "ask_for_time" : "Chose the time of appointment",
         "incorrect_time" : "Please, input correct 24h. time format like 'hh-mm'",
+        "approve_appointment" : "Is all datas bellow is correct?\nAppointment: ",
+
+        "coordinates" : "your GPS coordinates ",
+        "salon_location" : "Our salon address is ",
+        "loc" : "Location :",
 
 
         "act0" :  "Procedure 0 ",
         "price_act0" : " 36 &",
-        "time_act0" : " 30 min",
+        "time_act0" : "30",
         "act1" :  "Procedure 1",
         "act1_descr" : "procedure_number 1 its your choice",
         "price_act1" : " 36 ",

@@ -15,7 +15,7 @@ busy_time = {
     "night": {"busy_start": datetime.time(18, 0), "busy_end": datetime.time(23, 59)},
 }
 
-duration = 90  # in minutes
+
 
 
 async def translate_text(language_code, request):
@@ -68,7 +68,6 @@ async def language_coge_from_DB(id):
 async def language_code_from_state(state):
     """Extract language code"""
     data = await state.get_data()
-    first_name = data.get("first_name")
     language_code = data.get("language_code")
 
     return language_code
@@ -125,7 +124,7 @@ async def existanceCheck(id, now):
     check = cursor.execute("SELECT id FROM users WHERE id = ?;", (id,))
     if not check.fetchone():
         cursor.execute(
-            "INSERT INTO users (id, registration_time_ddmmyyyyhhmm) VALUES (?, ?);",
+            "INSERT INTO users (id, registration_time) VALUES (?, ?);",
             (id, now),
         )
         conn.commit()
@@ -135,7 +134,7 @@ async def save_language_in_DB(call):
     """Save the selected language"""
     id = int(call.message.chat.id)
     languageCode = call.data.split("=")[1]
-    now = int(datetime.datetime.now().strftime("%d%m%Y%H%M"))
+    now = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
     # check if the user already in base.
     await existanceCheck(id, now)
     # Save the language.
@@ -349,16 +348,18 @@ async def chose_massage_procedure_propose(language_code, message):
 
 
 async def save_chosen_procedure(message, state, language_code):
-    """Saves the chosen procedure into the state"""
+    """Saves the chosen procedure and it duration into the state"""
     # take a number of procedure
     procedure_number = message.text[0]
     # save it into state
     await state.update_data(procedure_number=procedure_number)
     # takes phrases in default language
     description = f"act{procedure_number}_descr"
-    you_chose, description = await translate_text(
-        language_code, ["you_chose", description]
+    you_chose, description ,duration= await translate_text(
+        language_code, ["you_chose", description, f"time_act{procedure_number}"]
     )
+    duration = only_numbers(duration)
+    await state.update_data(duration=int(duration))
     # send message with chosen procedure
     await message.answer(f"{you_chose}: {message.text}")
     # send message with description of procedure
@@ -495,6 +496,9 @@ async def ask_for_time(message, state):
     language_code = await language_code_from_state(state)
     ask_for_time = await translate_text(language_code, "ask_for_time")
     # change Time format
+    data = await state.get_data()
+
+    duration = data.get("duration")
     times = give_possible_time(busy_time, duration)
     formatted_times = [time.strftime("%H:%M") for time in times]
     markup_request = await kb.plural_buttons(formatted_times, 5)
@@ -619,6 +623,77 @@ async def time_selector(message, state):
     await thanks(message)
 
 
+async def approve_appointment(message, state):
+    '''send message with approve appointment '''
+    # load datas from sate
+    data = await state.get_data()
+    day = data.get("day")
+    time_appointment = data.get("time_appointment")
+    time_appointment = time_appointment.strftime("%H:%M")
+    procedure_number = data.get("procedure_number")
+    address = data.get("address")
+    place = data.get("place")
+    # Import message text
+    language_code = await language_code_from_state(state)
+    loc, act, price,time_act, place_out, coordinates, salon_location, currency= await translate_text(language_code, ["loc",
+                                                                                                 f"act{procedure_number}",
+                                                                                                f"price_act{procedure_number}",
+                                                                                                 f"time_act{procedure_number}",
+                                                                                                 "place",
+                                                                                                 "coordinates",
+                                                                                                 "salon_location",
+                                                                                                             "currency"])
+
+    time_addition=30
+
+    if  address:
+        address = data.get("address")
+    elif place == "my_place":
+        latitude = data.get("latitude")
+        longitude = data.get("longitude")
+        address=F"{coordinates},latitude, longitude"
+    elif place == "salon":
+        address= salon_location
+        place_out = "0"
+        time_addition = 0
+
+
+    # calculate price
+    price = only_numbers(price)
+    place_out = only_numbers(place_out)
+    price=str(int(price)+int(place_out))
+
+    # calculate time
+    time_act = only_numbers(time_act)
+    takes_time=int(time_act)+time_addition
+    chat_id = int(message.chat.id)
+    cursor.execute(
+        "INSERT INTO appointments (chat_id, date, time, procedure, duration, place, price) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (chat_id, day, time_appointment, act, takes_time, address, int(price))
+    )
+    conn.commit()
+
+    # add buttons
+    approve_appointment, keyboard = await kb.two_InlineKeyboardButton(language_code,"approve_appointment", "yes", "change", "confirm", "book again")
+    await message.answer(f"{approve_appointment}{act}\n{day} {time_appointment}\n{loc}{address}\n{price}{currency}\n{str(takes_time)}" ,reply_markup=keyboard)
+
+async def confirm_appointment(call):
+    '''send message that will be call by phone and save the approved the appointment '''
+    await thanks(call)
+    id=call.message.chat.id
+    phone=cursor.execute("SELECT phone_number FROM users WHERE id = ?;", (id,))
+    phone = cursor.fetchone()
+    await call.message.answer(phone)
+
+
+
+
+
+
+
+
+
+
 #
 #     # Calculate the start time for the next available slot
 #     start_time = datetime.datetime.combine(datetime.date.today(), last_busy_end) + datetime.timedelta(minutes=duration)
@@ -651,7 +726,7 @@ async def time_selector(message, state):
 # get_available_times(busy_time, duration)
 
 # async def time_selector(message,state):
-#     #TODO:
+#
 #     '''change the recived date in correct format save it  and ask for time '''
 #     # Import message text
 #     language_code = await language_code_from_state(state)
