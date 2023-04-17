@@ -27,7 +27,7 @@ async def start(message=types.Message, state=FSMContext):
         await language_start(message)
         return None
     # checks if the user is registered in the database. If not, the user is prompted to register.
-    first_name = await fn.first_nameCheck(message)
+    first_name = await fn.first_name_check(message)
     if not first_name:
         await registration_start(message, state)
 
@@ -66,28 +66,35 @@ async def booking(message=types.Message, state=FSMContext):
     language_code = await fn.language_code_give(message, state)
     if not language_code:
         await language_start(message)
+    else:
+        await state.update_data(language_code=language_code)
     # checks if User already registered?
     first_name = await fn.first_name_check(message)
     if not first_name:
         await registration_start(message, state)
-    else:
-        await fn.registration_booking(message, language_code)
 
-    # Open the booking state and send in a language_code
-    await ST.Booking.START_BOOK.set()
-    await state.update_data(language_code=language_code)
-    #     # propose to chose specialist
-    #     await fn.ask_for_specialist(message, language_code)
+    else:
+        await fn.send_registration_confirmation_message(message)
+    #     await ST.Booking.START_BOOK.set()
     #
-    # @dp.message_handler(lambda c : c.text== ("1"), state=ST.Booking.START_BOOK )
-    # async def spcialist_cosen(message=types.Message, state=FSMContext):
-    #     '''Mesage the shoisen specialist'''
-    #     language_code=await fn.language_code_give(message,state)
-    #     await fn.specialist_name(language_code, message)
-    #     # Save the specialist and kind of procedure
-    #     await state.update_data(kind="massage")
-    #     await state.update_data(specialict="1")
-    #     # Run the messege with list of procedure
+    # '''ask to chose specialist'''
+    #
+    # # Open the  state and send in a language_code
+    # language_code = await fn.language_code_give(message, state)
+#     await ST.Booking.SEL_Spec.set()
+#
+#     # propose to chose specialist
+#     await fn.ask_for_specialist(message, language_code)
+#
+# @dp.message_handler(lambda c : c.text== ("1"), state=ST.Booking.SEL_Spec )
+# async def specialist_cosen(message=types.Message, state=FSMContext):
+#     '''Mesage the shoisen specialist'''
+#     language_code=await fn.language_code_give(message,state)
+#     await fn.specialist_name(language_code, message)
+#     # Save the specialist and kind of procedureghjgecnbk
+#     await state.update_data(kind="massage")
+#     await state.update_data(specialict="1")
+#     # Run the messege with list of procedure
     await fn.chose_massage_procedure_propose(language_code, message)
     await ST.Booking.SEL_Proc.set()
 
@@ -104,13 +111,6 @@ async def procedure_chosen(message=types.Message, state=FSMContext):
     # sand a massage the propose to choose a place
     await fn.ask_for_location(message, language_code)
     await ST.Booking.SEL_Place.set()
-
-
-# @dp.message_handler(state=ST.Booking.SEL_Proc)
-# async def procedure_chosen2(message=types.Message, state=FSMContext):
-#     language_code = await fn.language_code_give(message, state)
-#     await fn.chose_massage_procedure_propose(language_code, message)
-#     await ST.Booking.SEL_Place.set()
 
 
 @dp.callback_query_handler(lambda c: c.data == "salon", state=ST.Booking.SEL_Place)
@@ -182,7 +182,7 @@ async def booking_again(call,state=FSMContext):
 )
 async def confirm_appointment(call, state=FSMContext):
 
-    await fn.confirm_appointment(call)
+    await fn.confirm_appointment(call,state)
     await state.finish()
 
 """
@@ -302,25 +302,30 @@ async def handler_email(message=types.Message, state=FSMContext):
 
     await fn.end_registration(message, state)
     await fn.is_contact_correct(message)
+    await ST.FirstRegistration.END_REG.set()
 
 
-@dp.callback_query_handler(
-    lambda c: c.data == "contact correct", state=ST.FirstRegistration.EMAIL_REG
-)
-async def registration_correct(call, state=FSMContext):
-    """Send message with thanks for registration"""
-    await fn.thanks(call)
-    # Close the state
-    await state.finish()
+
+
+
 
 
 @dp.callback_query_handler(
-    lambda c: c.data == "start registration", state=ST.FirstRegistration.EMAIL_REG
+    lambda c: c.data == "start registration", state=[ST.FirstRegistration.END_REG, ST.Booking.START_BOOK]
 )
 async def reregistration(call, state=FSMContext):
     """Send message asking user which information they would like to correct"""
     message = call.message
     await registration_start(message, state)
+
+@dp.callback_query_handler(
+    lambda c: c.data == "contact correct", state=ST.FirstRegistration.END_REG
+)
+async def end_reregistration(call, state=FSMContext):
+    """Send message Thanks and propose to booking an appointment"""
+    await fn.end_reregistration(call, state)
+    await state.finish()
+
 
 
 """

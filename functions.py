@@ -50,7 +50,7 @@ def only_numbers(text_with_nombers):
     return phone_number
 
 
-async def obj_processor(obj):
+def obj_processor(obj):
     if isinstance(obj, types.Message):
         message = obj
     elif isinstance(obj, types.CallbackQuery):
@@ -77,7 +77,7 @@ async def language_code_give(obj, state):
     """Give back the language_code"""
     language_code = await language_code_from_state(state)
     if not language_code:
-        message = await obj_processor(obj)
+        message = obj_processor(obj)
         id = int(message.chat.id)
         language_code = await language_coge_from_DB(id)
         if not language_code:
@@ -201,7 +201,7 @@ async def ask_contact(message, language_code):
     )
     markup_request = await kb.your_phone_number(send_contact)
 
-    await message.reply(reg_text, reply_markup=markup_request)
+    await message.answer(reg_text, reply_markup=markup_request)
 
 
 async def ask_email(message, state):
@@ -280,24 +280,22 @@ async def extract_and_save_from_contact(message, state):
     await state.update_data(last_name=last_name)
 
 
-async def adapt_to_message(obj):
-    """Modifies an object so that it can be treated as a message, even if it was originally a callback query."""
-    if isinstance(obj, types.Message):
-        message = obj
-    elif isinstance(obj, types.CallbackQuery):
-        message = obj.message
-    return message
 
 
 async def thanks(obj):
     """Send thanks"""
     # Takes a language from state
-    message = await adapt_to_message(obj)
+    message = obj_processor(obj)
     chat_id = int(message.chat.id)
     language_code = await language_coge_from_DB(chat_id)
     thanks = await translate_text(language_code, "thanks")
     await message.answer(thanks)
 
+async def end_reregistration(call,state):
+    language_code= await language_code_give(call,state)
+    end_reg = await translate_text(language_code, "end_reg")
+    key = await kb.one_button("/book")
+    await call.message.answer(end_reg,reply_markup=key)
 
 async def registration_booking(message, language_code):
     await send_registration_confirmation_message(message)
@@ -314,12 +312,13 @@ async def ask_for_specialist(message, language_code):
 
 async def specialist_name(language_code, message):
     """Send the name of specialist"""
-    specialist_name = await translate_text(language_code, "specialist_name")
+    specialist_name = await translate_text(language_code, "specialist_name1")
     await message.answer(specialist_name)
 
 
-async def chose_massage_procedure_propose(language_code, message):
+async def chose_massage_procedure_propose(language_code, obj):
     """Send the massage options"""
+    message = obj_processor(obj)
     chose_procedure = await translate_text(language_code, "chose_procedure")
     await message.answer(chose_procedure)
 
@@ -333,12 +332,12 @@ async def chose_massage_procedure_propose(language_code, message):
         for i in range(1, n):
             propose += (
                 f"{i} "
-                + text[language_code][f"act{i}"]
+                + text[language_code][f"act_1_{i}"]
                 + "\t"
-                + text[language_code][f"time_act{i}"]
+                + text[language_code][f"time_act_1_{i}"]
                 + text[language_code][f"min"]
                 + "\t"
-                + text[language_code][f"price_act{i}"]
+                + text[language_code][f"price_act_1_{i}"]
                 + text[language_code][f"currency"]
                 + "\n\n"
             )
@@ -354,9 +353,9 @@ async def save_chosen_procedure(message, state, language_code):
     # save it into state
     await state.update_data(procedure_number=procedure_number)
     # takes phrases in default language
-    description = f"act{procedure_number}_descr"
+    description = f"act_1_{procedure_number}_descr"
     you_chose, description ,duration= await translate_text(
-        language_code, ["you_chose", description, f"time_act{procedure_number}"]
+        language_code, ["you_chose", description, f"time_act_1_{procedure_number}"]
     )
     duration = only_numbers(duration)
     await state.update_data(duration=int(duration))
@@ -382,7 +381,7 @@ async def ask_for_location(message, language_code):
 async def our_contact(bot, obj, state):
     """give an information about location of salon"""
     language_code = await language_code_from_state(state)
-    message = await obj_processor(obj)
+    message = obj_processor(obj)
     # send a message to user
     await message.answer("У HАС")
     # # send a photo to user
@@ -459,7 +458,7 @@ def data_formatter(day):
 
 async def ask_for_data(obj, state):
     """Thanks for the address and ask for chose the date"""
-    message = await obj_processor(obj)
+    message = obj_processor(obj)
     language_code = await language_code_from_state(state)
     ask_for_date = await translate_text(language_code, "ask_for_date")
 
@@ -633,12 +632,15 @@ async def approve_appointment(message, state):
     procedure_number = data.get("procedure_number")
     address = data.get("address")
     place = data.get("place")
+    specialist = data.get("specialist")
+    kind = data.get("kind")
+
     # Import message text
     language_code = await language_code_from_state(state)
     loc, act, price,time_act, place_out, coordinates, salon_location, currency= await translate_text(language_code, ["loc",
-                                                                                                 f"act{procedure_number}",
-                                                                                                f"price_act{procedure_number}",
-                                                                                                 f"time_act{procedure_number}",
+                                                                                                 f"act_1_{procedure_number}",
+                                                                                                 f"price_act_1_{procedure_number}",
+                                                                                                 f"time_act_1_{procedure_number}",
                                                                                                  "place",
                                                                                                  "coordinates",
                                                                                                  "salon_location",
@@ -667,9 +669,11 @@ async def approve_appointment(message, state):
     time_act = only_numbers(time_act)
     takes_time=int(time_act)+time_addition
     chat_id = int(message.chat.id)
+    now = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
+
     cursor.execute(
-        "INSERT INTO appointments (chat_id, date, time, procedure, duration, place, price) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (chat_id, day, time_appointment, act, takes_time, address, int(price))
+        "INSERT INTO appointments (chat_id, date, time, procedure, duration, place, price, registration_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (chat_id, day, time_appointment, act, takes_time, address, int(price), now)
     )
     conn.commit()
 
@@ -677,13 +681,32 @@ async def approve_appointment(message, state):
     approve_appointment, keyboard = await kb.two_InlineKeyboardButton(language_code,"approve_appointment", "yes", "change", "confirm", "book again")
     await message.answer(f"{approve_appointment}{act}\n{day} {time_appointment}\n{loc}{address}\n{price}{currency}\n{str(takes_time)}" ,reply_markup=keyboard)
 
-async def confirm_appointment(call):
+async def confirm_appointment(call,state):
     '''send message that will be call by phone and save the approved the appointment '''
-    await thanks(call)
-    id=call.message.chat.id
-    phone=cursor.execute("SELECT phone_number FROM users WHERE id = ?;", (id,))
+    # work with SQL
+    chat_id = call.message.chat.id
+    phone = cursor.execute("SELECT phone_number FROM users WHERE id = ?;", (chat_id,))
     phone = cursor.fetchone()
-    await call.message.answer(phone)
+    phone = phone[0]
+
+    cursor.execute(
+        "UPDATE appointments SET phone=?, confirm=1 WHERE id = (SELECT id FROM appointments WHERE registration_time = (SELECT MAX(registration_time) FROM appointments WHERE chat_id = ?) AND chat_id = ?);",
+        (phone, chat_id, chat_id)
+    )
+    conn.commit()
+
+    conn.commit()
+    await thanks(call)
+
+    language_code = await language_code_give(call,state)
+    we_will_call= await translate_text(language_code, "we_will_call")
+
+    await call.message.answer(we_will_call.format(phone=str(phone)))
+
+# def busy_time_maker(day):
+#
+#     return busy_time
+
 
 
 
@@ -772,7 +795,7 @@ async def confirm_appointment(call):
 
 
 async def exit(obj, state):
-    message = await obj_processor(obj)
+    message = obj_processor(obj)
     language_code = await language_code_give(message, state)
     exit = await translate_text(language_code, "exit")
     await message.answer(exit)
