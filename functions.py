@@ -11,13 +11,11 @@ cursor = conn.cursor()
 # from datetime import datetime
 
 busy_time = {
-    "morning": {"busy_start": datetime.time(0, 0), "busy_end": datetime.time(8, 0)},
-    "night": {"busy_start": datetime.time(18, 0), "busy_end": datetime.time(23, 59)},
+    "morning": {"busy_start": datetime.time.min, "busy_end": datetime.time(8, 0)},
+    "night": {"busy_start": datetime.time(18, 0), "busy_end": datetime.time.max},
 }
 
-
-
-
+"""FOR MAX prosedure search for n=5"""
 async def translate_text(language_code, request):
     """Search the text in correct language."""
     # Load the text strings from the JSON file
@@ -280,8 +278,6 @@ async def extract_and_save_from_contact(message, state):
     await state.update_data(last_name=last_name)
 
 
-
-
 async def thanks(obj):
     """Send thanks"""
     # Takes a language from state
@@ -291,11 +287,13 @@ async def thanks(obj):
     thanks = await translate_text(language_code, "thanks")
     await message.answer(thanks)
 
-async def end_reregistration(call,state):
-    language_code= await language_code_give(call,state)
+
+async def end_reregistration(call, state):
+    language_code = await language_code_give(call, state)
     end_reg = await translate_text(language_code, "end_reg")
     key = await kb.one_button("/book")
-    await call.message.answer(end_reg,reply_markup=key)
+    await call.message.answer(end_reg, reply_markup=key)
+
 
 async def registration_booking(message, language_code):
     await send_registration_confirmation_message(message)
@@ -317,11 +315,11 @@ async def specialist_name(language_code, message):
 
 
 async def chose_massage_procedure_propose(language_code, obj):
-    """Send the massage options"""
+    """Send the message options"""
     message = obj_processor(obj)
     chose_procedure = await translate_text(language_code, "chose_procedure")
     await message.answer(chose_procedure)
-
+    # n is maximum number of procedure to chose
     n = 5
     propose = ""
     keys = []
@@ -354,7 +352,7 @@ async def save_chosen_procedure(message, state, language_code):
     await state.update_data(procedure_number=procedure_number)
     # takes phrases in default language
     description = f"act_1_{procedure_number}_descr"
-    you_chose, description ,duration= await translate_text(
+    you_chose, description, duration = await translate_text(
         language_code, ["you_chose", description, f"time_act_1_{procedure_number}"]
     )
     duration = only_numbers(duration)
@@ -602,7 +600,8 @@ def give_possible_time(busy_time, duration):
             if current_time.time() in hours:
                 times.append(current_time.time())
         # add last possible time
-        times.append(end_datetime.time())
+        if not end_datetime.time() in  times:
+            times.append(end_datetime.time())
     return times
 
 
@@ -623,7 +622,7 @@ async def time_selector(message, state):
 
 
 async def approve_appointment(message, state):
-    '''send message with approve appointment '''
+    """send message with approve appointment"""
     # load datas from sate
     data = await state.get_data()
     day = data.get("day")
@@ -637,84 +636,99 @@ async def approve_appointment(message, state):
 
     # Import message text
     language_code = await language_code_from_state(state)
-    loc, act, price,time_act, place_out, coordinates, salon_location, currency= await translate_text(language_code, ["loc",
-                                                                                                 f"act_1_{procedure_number}",
-                                                                                                 f"price_act_1_{procedure_number}",
-                                                                                                 f"time_act_1_{procedure_number}",
-                                                                                                 "place",
-                                                                                                 "coordinates",
-                                                                                                 "salon_location",
-                                                                                                             "currency"])
+    (
+        loc,
+        act,
+        price,
+        time_act,
+        place_out,
+        coordinates,
+        salon_location,
+        currency,
+    ) = await translate_text(
+        language_code,
+        [
+            "loc",
+            f"act_1_{procedure_number}",
+            f"price_act_1_{procedure_number}",
+            f"time_act_1_{procedure_number}",
+            "place",
+            "coordinates",
+            "salon_location",
+            "currency",
+        ],
+    )
+    # time_addition it's time to get in to the place what client chose
+    time_addition = 30
 
-    time_addition=30
-
-    if  address:
+    if address:
         address = data.get("address")
     elif place == "my_place":
         latitude = data.get("latitude")
         longitude = data.get("longitude")
-        address=F"{coordinates},latitude, longitude"
+        address = f"{coordinates},latitude, longitude"
     elif place == "salon":
-        address= salon_location
+        address = salon_location
         place_out = "0"
         time_addition = 0
-
 
     # calculate price
     price = only_numbers(price)
     place_out = only_numbers(place_out)
-    price=str(int(price)+int(place_out))
+    price = str(int(price) + int(place_out))
 
     # calculate time
     time_act = only_numbers(time_act)
-    takes_time=int(time_act)+time_addition
+    takes_time = int(time_act) + time_addition
     chat_id = int(message.chat.id)
     now = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
 
     cursor.execute(
         "INSERT INTO appointments (chat_id, date, time, procedure, duration, place, price, registration_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (chat_id, day, time_appointment, act, takes_time, address, int(price), now)
+        (chat_id, day, time_appointment, act, takes_time, address, int(price), now),
     )
     conn.commit()
 
     # add buttons
-    approve_appointment, keyboard = await kb.two_InlineKeyboardButton(language_code,"approve_appointment", "yes", "change", "confirm", "book again")
-    await message.answer(f"{approve_appointment}{act}\n{day} {time_appointment}\n{loc}{address}\n{price}{currency}\n{str(takes_time)}" ,reply_markup=keyboard)
+    approve_appointment, keyboard = await kb.two_InlineKeyboardButton(
+        language_code, "approve_appointment", "yes", "change", "confirm", "book again"
+    )
+    await message.answer(
+        f"{approve_appointment}{act}\n{day} {time_appointment}\n{loc}{address}\n{price}{currency}\n{str(takes_time)}",
+        reply_markup=keyboard,
+    )
 
-async def confirm_appointment(call,state):
-    '''send message that will be call by phone and save the approved the appointment '''
+
+async def confirm_appointment(call, state):
+    """send message that will be call by phone and save the approved the appointment"""
     # work with SQL
+    # take phone number
     chat_id = call.message.chat.id
     phone = cursor.execute("SELECT phone_number FROM users WHERE id = ?;", (chat_id,))
     phone = cursor.fetchone()
     phone = phone[0]
-
+    # input confirm and  phone number in DB
     cursor.execute(
         "UPDATE appointments SET phone=?, confirm=1 WHERE id = (SELECT id FROM appointments WHERE registration_time = (SELECT MAX(registration_time) FROM appointments WHERE chat_id = ?) AND chat_id = ?);",
-        (phone, chat_id, chat_id)
+        (phone, chat_id, chat_id),
     )
     conn.commit()
 
-    conn.commit()
+   # sand messages
     await thanks(call)
-
-    language_code = await language_code_give(call,state)
-    we_will_call= await translate_text(language_code, "we_will_call")
-
+    language_code = await language_code_give(call, state)
+    we_will_call = await translate_text(language_code, "we_will_call")
     await call.message.answer(we_will_call.format(phone=str(phone)))
 
-# def busy_time_maker(day):
-#
-#     return busy_time
 
+def busy_time_maker(day):
+    '''Takes the appointments from DB and create the dictionary with it for day'''
+    busy_time = {
+        "morning": {"busy_start": datetime.time.min, "busy_end": datetime.time(8, 0)},
+        "night": {"busy_start": datetime.time(18, 0), "busy_end": datetime.time.max},
+    }
 
-
-
-
-
-
-
-
+    return busy_time
 
 
 #

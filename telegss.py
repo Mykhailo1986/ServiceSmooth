@@ -23,19 +23,15 @@ async def start(message=types.Message, state=FSMContext):
     await message.answer("HI")
     # checks if the language is in the database. If not, the user is prompted to choose a language.
     language_code = await fn.language_code_give(message, state)
+    first_name = await fn.first_name_check(message)
     if not language_code:
         await language_start(message)
         return None
     # checks if the user is registered in the database. If not, the user is prompted to register.
-    first_name = await fn.first_name_check(message)
-    if not first_name:
+    elif not first_name:
         await registration_start(message, state)
 
 
-# @dp.message_handler(commands=["exit"], state="*")
-# async def exit(message=types.Message, state=FSMContext):
-#     await fn.exit(message.state)
-#     await start(message,state)
 @dp.message_handler(commands=["reg"], state="*")
 async def registration_start(message=types.Message, state=FSMContext):
     """Start registration form"""
@@ -94,7 +90,7 @@ async def booking(message=types.Message, state=FSMContext):
 #     # Save the specialist and kind of procedureghjgecnbk
 #     await state.update_data(kind="massage")
 #     await state.update_data(specialict="1")
-#     # Run the messege with list of procedure
+#     # Run the message with list of procedure
     await fn.chose_massage_procedure_propose(language_code, message)
     await ST.Booking.SEL_Proc.set()
 
@@ -165,6 +161,7 @@ async def take_day_from_user(message: types.Message, state=FSMContext):
 
 @dp.message_handler(state=ST.Booking.SEL_Time)
 async def take_time_from_user(message: types.Message, state=FSMContext):
+    """Take and save in state time of appointment from user, send a confirmation"""
     await fn.time_selector(message, state)
     await fn.approve_appointment(message, state)
     await ST.Booking.END_BOOK.set()
@@ -172,6 +169,7 @@ async def take_time_from_user(message: types.Message, state=FSMContext):
     lambda c: c.data == "book again", state=ST.Booking.END_BOOK
 )
 async def booking_again(call,state=FSMContext):
+    '''return to chose the procedure'''
     language_code= await fn.language_code_give(call,state)
     message=call.message
     await fn.chose_massage_procedure_propose(language_code, message)
@@ -181,7 +179,6 @@ async def booking_again(call,state=FSMContext):
     lambda c: c.data == "confirm", state=ST.Booking.END_BOOK
 )
 async def confirm_appointment(call, state=FSMContext):
-
     await fn.confirm_appointment(call,state)
     await state.finish()
 
