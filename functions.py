@@ -1,19 +1,22 @@
-from aiogram import Bot, Dispatcher, executor, types
+from aiogram import types
 import re
 import json
 import keyboards as kb
 import sqlite3
 import datetime
+import states as ST
 
 # Connect to the database
 conn = sqlite3.connect("ss.db")
 cursor = conn.cursor()
 # from datetime import datetime
 
-working_time = {"work_start" : datetime.time(8, 0), "work_end" : datetime.time(18, 0)}
+working_time = {"work_start": datetime.time(8, 0), "work_end": datetime.time(18, 0)}
 
 
 """FOR MAX prosedure search for n=5"""
+
+
 async def translate_text(language_code, request):
     """Search the text in correct language."""
     # Load the text strings from the JSON file
@@ -78,7 +81,10 @@ async def language_code_give(obj, state):
         language_code = await language_coge_from_DB(id)
         if not language_code:
             keyboards = await kb.one_button("/lang")
-            await message.answer("ONG!!! You didn't chose the language. Tap on /lang")
+            await message.answer(
+                "ONG!!! You didn't chose the language. Tap on /lang",
+                reply_markup=keyboards,
+            )
     return language_code
 
 
@@ -493,36 +499,79 @@ async def ask_for_time(message, state):
     ask_for_time = await translate_text(language_code, "ask_for_time")
     # change Time format
     data = await state.get_data()
-    day=data.get("day")
+    day = data.get("day")
     duration = data.get("duration")
-    busy_time=busy_time_maker(day)
+    time_addition = data.get("time_addition")
+    takes_time = duration + time_addition
+    busy_time = busy_time_maker(day)
     times = give_possible_time(busy_time, duration)
-    if times ==[]:
-        await message.answer('день занят')
-        return
+    # if in this day didnt fit any more appointments this size
+    if times == []:
+        procedure_number = data.get("procedure_number")
+        chat_id = int(message.chat.id)
+        now = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
+        address = data.get("address")
+        act, price, day_busy = await translate_text(
+            language_code,
+            [
+                f"act_1_{procedure_number}",
+                f"price_act_1_{procedure_number}",
+                "day_busy",
+            ],
+        )
+        query = """
+            INSERT INTO appointments
+            (chat_id, date, procedure, duration, place, price, registration_time, phone , confirm)
+            VALUES (?, ?, ?, ?, ?, ?, ?,(SELECT phone_number FROM users WHERE id = ?), 2)
+            """
+        cursor.execute(
+            query,
+            (chat_id, day, act, takes_time, address, int(price), now, chat_id),
+        )
+        conn.commit()
+        await message.answer(day_busy)
+        await ask_for_data(message, state)
+        await ST.Booking.SEL_Date.set()
+        return False
+
     formatted_times = [time.strftime("%H:%M") for time in times]
     markup_request = await kb.plural_buttons(formatted_times, 5)
     await message.answer(ask_for_time, reply_markup=markup_request)
+    return True
 
 
 def busy_time_maker(day):
-    '''Takes the appointments from DB and create the dictionary with it for day'''
+    """Takes the appointments from DB and create the dictionary with it for day"""
     busy_time = {}
 
-    rows = cursor.execute("SELECT time, duration FROM appointments WHERE date=? AND confirm=1 ORDER BY time;", (day,))
+    rows = cursor.execute(
+        "SELECT time, duration FROM appointments WHERE date=? AND confirm=1 ORDER BY time;",
+        (day,),
+    )
     rows = cursor.fetchall()
-    busy_time ["morning"]= {"busy_start": datetime.time.min, "busy_end": working_time["work_start"],}
+    busy_time["morning"] = {
+        "busy_start": datetime.time.min,
+        "busy_end": working_time["work_start"],
+    }
 
     for i, row in enumerate(rows):
         appointment = {
             "busy_start": datetime.datetime.strptime(row[0], "%H:%M").time(),
-            "busy_end": (datetime.datetime.strptime(row[0], "%H:%M") + datetime.timedelta(minutes=row[1] + 15)).time(),
+            "busy_end": (
+                datetime.datetime.strptime(row[0], "%H:%M")
+                + datetime.timedelta(minutes=row[1] + 15)
+            ).time(),
         }
         busy_time[f"Appointment{i}"] = appointment
 
-    busy_time["night"]= {"busy_start": working_time["work_end"], "busy_end": datetime.time.max,}
+    busy_time["night"] = {
+        "busy_start": working_time["work_end"],
+        "busy_end": datetime.time.max,
+    }
 
     return busy_time
+
+
 def time_formatter(text):
     """make inputed text in datatime format"""
     number = only_numbers(text)
@@ -551,22 +600,6 @@ def time_formatter(text):
     return time_format
 
 
-# def free_time_between_appointments(busy_time, start):
-#     """Create the gap between of one appointment and begin of other"""
-#
-#     # Find the gap begin
-#     gap_start = datetime.time.max
-#     for key in busy_time.keys():
-#         busy_end = busy_time[key]["busy_end"]
-#         if busy_end < gap_start and busy_end > start:
-#             gap_start = busy_end
-#     # Find the gap and
-#     gap_end = datetime.time.max
-#     for key in busy_time.keys():
-#         busy_start = busy_time[key]["busy_start"]
-#         if busy_start > gap_start and busy_start < gap_end:
-#             gap_end = busy_start
-#     return (gap_start, gap_end)
 def free_time_between_appointments(busy_time, start):
     """Create the gap between of one appointment and begin of other"""
 
@@ -615,9 +648,6 @@ def available_time_slots(busy_time, duration):
     return gaps
 
 
-
-
-
 def give_possible_time(busy_time, duration):
     """return possible time for buttons"""
     gaps = available_time_slots(busy_time, duration)
@@ -645,13 +675,16 @@ def give_possible_time(busy_time, duration):
             if current_time.time() in hours:
                 times.append(current_time.time())
         # add last possible time
-        if not end_datetime.time() in  times:
+        if not end_datetime.time() in times:
             times.append(end_datetime.time())
     return times
 
+
 def check_time_slot_fit(start_time, duration, gaps):
-    '''Check if time is fit in gap'''
-    end_time = datetime.datetime.combine(datetime.date.today(), start_time) + datetime.timedelta(minutes=duration)
+    """Check if time is fit in gap"""
+    end_time = datetime.datetime.combine(
+        datetime.date.today(), start_time
+    ) + datetime.timedelta(minutes=duration)
     start_time = datetime.datetime.combine(datetime.date.today(), start_time)
     for gap in gaps:
         gap_start = datetime.datetime.combine(datetime.date.today(), gap[0])
@@ -661,6 +694,7 @@ def check_time_slot_fit(start_time, duration, gaps):
             return True
     # No gap can fit the time slot
     return False
+
 
 async def time_selector(message, state):
     """hear and change the recived time in correct format save it  and ask for time"""
@@ -680,19 +714,17 @@ async def time_selector(message, state):
     duration = data.get("duration")
     time_addition = data.get("time_addition")
     # calculate time
-    duration+=time_addition
+    duration += time_addition
     busy_time = busy_time_maker(day)
     gaps = available_time_slots(busy_time, duration)
     # check if the time for fit in gap
     if not check_time_slot_fit(time_appointment, duration, gaps):
         await message.answer("Виберыть ынший час")
         await ask_for_time(message, state)
-        time_appointment=None
+        time_appointment = None
 
     # save time format in state
     await state.update_data(time_appointment=time_appointment)
-
-
 
 
 async def approve_appointment(message, state):
@@ -711,9 +743,9 @@ async def approve_appointment(message, state):
     specialist = data.get("specialist")
     kind = data.get("kind")
     out = data.get("out")
-    duration= data.get("duration")
+    duration = data.get("duration")
     # time_addition it's time to get in to the place what client chose
-    time_addition= data.get("time_addition")
+    time_addition = data.get("time_addition")
 
     # Import message text
     language_code = await language_code_from_state(state)
@@ -740,21 +772,14 @@ async def approve_appointment(message, state):
         ],
     )
 
-
-
-
-
     # calculate price
     price = only_numbers(price)
     place_out = only_numbers(place_out)
-    price = int(price) + int(place_out)*out
+    price = int(price) + int(place_out) * out
 
     # calculate time
 
     takes_time = duration + time_addition
-
-
-
 
     chat_id = int(message.chat.id)
     now = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
@@ -790,13 +815,11 @@ async def confirm_appointment(call, state):
     )
     conn.commit()
 
-   # sand messages
+    # sand messages
     await thanks(call)
     language_code = await language_code_give(call, state)
     we_will_call = await translate_text(language_code, "we_will_call")
     await call.message.answer(we_will_call.format(phone=str(phone)))
-
-
 
 
 # busy_time_maker('23-04-2023')

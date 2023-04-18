@@ -36,6 +36,7 @@
         "incorrect_data" :  "Please, input correct data format like 'DD-MM'",
         "ask_for_time" : "Chose the time of appointment",
         "incorrect_time" : "Please, input correct 24h. time format like 'hh-mm'",
+        "day_busy" : "Sorry, but this day is full, try another day",
         "approve_appointment" : "Is all datas bellow is correct?\nAppointment: ",
 
         "coordinates" : "your GPS coordinates ",
