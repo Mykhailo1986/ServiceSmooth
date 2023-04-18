@@ -41,6 +41,15 @@ async def start(message=types.Message, state=FSMContext):
         await registration_start(message, state)
 
 
+@dp.message_handler(commands=["help"], state="*")
+async def help(message=types.Message, state=FSMContext):
+    """send message about possible options"""
+    language_code = await fn.language_code_give(message, state)
+    if not language_code:
+        await language_start(message)
+    fn.help_message(message, state, language_code)
+
+
 @dp.message_handler(commands=["reg"], state="*")
 async def registration_start(message=types.Message, state=FSMContext):
     """Start registration form"""
@@ -57,6 +66,57 @@ async def registration_start(message=types.Message, state=FSMContext):
     # add the language_code in state
     await ST.FirstRegistration.F_NAME_REG.set()
     await state.update_data(language_code=language_code)
+
+
+"""
+Looking
+BEGINING
+"""
+
+
+@dp.message_handler(commands=["look"], state="*")
+async def looking(message=types.Message, state=FSMContext):
+    """Send message with your appointments"""
+    language_code = await fn.language_code_give(message, state)
+    if not language_code:
+        await language_start(message)
+    if await fn.looking(language_code, message, state):
+        await ST.ServiseSmoothState.CHOOSE_lOOK.set()
+
+
+@dp.callback_query_handler(
+    lambda c: c.data in {"change", "cancel"}, state=ST.ServiseSmoothState.CHOOSE_lOOK
+)
+async def are_you_sure(call, state=FSMContext):
+    await fn.are_you_sure(call, state)
+
+
+@dp.callback_query_handler(
+    lambda c: c.data == "change it", state=ST.ServiseSmoothState.CHOOSE_lOOK
+)
+async def change_date(call, state=FSMContext):
+    await fn.change_date_appointment(call, state)
+
+
+@dp.callback_query_handler(
+    lambda c: c.data == "cancel it", state=ST.ServiseSmoothState.CHOOSE_lOOK
+)
+async def change_date(call, state=FSMContext):
+    await fn.cancel_appointment(call, state)
+    await state.finish()
+
+
+@dp.callback_query_handler(
+    lambda c: c.data == "no", state=ST.ServiseSmoothState.CHOOSE_lOOK
+)
+async def i_mistaken(call, state=FSMContext):
+    await state.finish()
+
+
+"""
+Looking
+END
+"""
 
 
 """
@@ -121,8 +181,6 @@ async def procedure_chosen(message=types.Message, state=FSMContext):
 @dp.callback_query_handler(lambda c: c.data == "salon", state=ST.Booking.SEL_Place)
 async def salon(call, state=FSMContext):
     """give an information about location of salon"""
-    # send a place into state
-    await state.update_data(address="Salon", time_addition=0, out=0)
     await ST.Booking.SEL_Date.set()
     # send our contact information
     await fn.our_contact(bot, call, state)

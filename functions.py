@@ -14,7 +14,17 @@ cursor = conn.cursor()
 working_time = {"work_start": datetime.time(8, 0), "work_end": datetime.time(18, 0)}
 
 
-"""FOR MAX prosedure search for n=5"""
+"""FOR MAX procedure search for n=5
+    look in procedure_chosen in telegrass.py
+    and look in text.json FROM line "act_1_1" ... TO line "time_act_1_5"
+"""
+"""confirm:
+None = not ended 
+ 1 = correct agried with user
+ 2 = not fit in time
+ 3 = changed
+ 0 = cancelled
+ """
 
 
 async def translate_text(language_code, request):
@@ -382,11 +392,14 @@ async def ask_for_location(message, language_code):
 
 
 async def our_contact(bot, obj, state):
-    """give an information about location of salon"""
+    """give an information about location of salon and save choise in state"""
     language_code = await language_code_from_state(state)
     message = obj_processor(obj)
     # send a message to user
-    await message.answer("У HАС")
+    salon_location = await translate_text(language_code, "salon_location")
+    # send a place into state
+    await state.update_data(address=salon_location, time_addition=0, out=0)
+    await message.answer(salon_location)
     # # send a photo to user
     # await bot.send_photo(message.chat.id, photo=open('media/pics/kitten1.jpg', "rb"), caption="Котик")
     # # send a location to user
@@ -473,6 +486,7 @@ async def ask_for_data(obj, state):
         dates = fifteen_days(n)
 
     formatted_dates = [date.strftime("%d-%m") for date in dates]
+
     markup_request = await kb.plural_buttons(formatted_dates, 5)
     # send message with 15 buttons of the day
     await message.answer(ask_for_date, reply_markup=markup_request)
@@ -549,9 +563,17 @@ def busy_time_maker(day):
         (day,),
     )
     rows = cursor.fetchall()
+
+    if datetime.datetime.now().strftime("%d-%m-%Y") == day:
+        busy_end = datetime.datetime.strptime(
+            datetime.datetime.now().strftime("%H:%M"), "%H:%M"
+        ).time()
+    else:
+        busy_end = working_time["work_start"]
+
     busy_time["morning"] = {
         "busy_start": datetime.time.min,
-        "busy_end": working_time["work_start"],
+        "busy_end": busy_end,
     }
 
     for i, row in enumerate(rows):
@@ -615,6 +637,7 @@ def free_time_between_appointments(busy_time, start):
         busy_start = busy_time[key]["busy_start"]
         if busy_start >= gap_start and busy_start < gap_end:
             gap_end = busy_start
+
     return (gap_start, gap_end)
 
 
@@ -632,12 +655,12 @@ def gap_duration_compare(gap, duration):
 def available_time_slots(busy_time, duration):
     """Add function to generate available time slots based on busy times and required duration."""
     gaps = []
-    start = datetime.time.min
+    # start = datetime.time.min
+    start = busy_time["morning"]["busy_end"]
 
     while True:
         gap = free_time_between_appointments(busy_time, start)
         if gap_duration_compare(gap, duration):
-
             gaps.append(gap)
         # Move to the next gap
         gap_start, gap_end = gap
@@ -775,10 +798,12 @@ async def approve_appointment(message, state):
     # calculate price
     price = only_numbers(price)
     place_out = only_numbers(place_out)
-    price = int(price) + int(place_out) * out
-
+    price_total = int(price) + int(place_out) * out
+    if not price_total:
+        price_total = data.get("price_total")
+    if data.get("procedure"):
+        act = data.get("procedure")
     # calculate time
-
     takes_time = duration + time_addition
 
     chat_id = int(message.chat.id)
@@ -786,7 +811,16 @@ async def approve_appointment(message, state):
 
     cursor.execute(
         "INSERT INTO appointments (chat_id, date, time, procedure, duration, place, price, registration_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (chat_id, day, time_appointment, act, takes_time, address, int(price), now),
+        (
+            chat_id,
+            day,
+            time_appointment,
+            act,
+            takes_time,
+            address,
+            int(price_total),
+            now,
+        ),
     )
     conn.commit()
 
@@ -817,6 +851,148 @@ async def confirm_appointment(call, state):
 
     # sand messages
     await thanks(call)
+    language_code = await language_code_give(call, state)
+    we_will_call = await translate_text(language_code, "we_will_call")
+    await call.message.answer(we_will_call.format(phone=str(phone)))
+
+
+async def help_message(message, state, lenguage_code):
+    """send message about possible options"""
+    help_message = await translate_text(lenguage_code, "help_message")
+    await message.answer(help_message)
+
+
+async def nearest_appointment(obj):
+    """takes datta for nearest appointment"""
+    message = obj_processor(obj)
+    now = datetime.datetime.now().strftime("%d-%m-%Y")
+    chat_id = message.chat.id
+    row = cursor.execute(
+        "SELECT procedure, MIN(date), time, duration, place, price FROM appointments WHERE date<=? AND confirm=1 AND chat_id=?;",
+        (now, chat_id),
+    )
+    row = cursor.fetchone()
+
+    if row == []:
+        return False
+    else:
+        procedure, date, time, duration, place, price = (
+            row[0],
+            row[1],
+            row[2],
+            row[3],
+            row[4],
+            row[5],
+        )
+        return procedure, date, time, duration, place, price
+
+
+async def valid_appointments(message, state):
+    """For multiply appointments"""
+    now = datetime.datetime.now().strftime("%d-%m-%Y")
+    chat_id = message.chat.id
+    rows = cursor.execute(
+        "SELECT procedure, date, time, duration, place, price FROM appointments WHERE date>=? AND confirm=1 AND chat_id=? ORDER BY time;",
+        (now, chat_id),
+    )
+    rows = cursor.fetchall()
+    if rows == []:
+        return False
+    else:
+        i = 1
+        for row in rows:
+            procedure, date, time, duration, place, price = (
+                row[0],
+                row[1],
+                row[2],
+                row[3],
+                row[4],
+                row[5],
+            )
+            await message.answer(
+                f"Your appintment {i}:\n{procedure}, {date}, {time}, {duration}, {place}, {price} "
+            )
+            i += 1
+        return True
+
+
+async def looking(language_code, message, state):
+    """Send message with your appointment"""
+    procedure, date, time, duration, place, price = await nearest_appointment(message)
+
+    if not procedure:
+        await message.answer("у вас нет записи")
+        return False
+    appointment, keyboard = await kb.two_InlineKeyboardButton(
+        language_code, "your_appointment", "cng_app", "del", "change", "cancel"
+    )
+    await message.answer(
+        appointment.format(
+            procedure=procedure,
+            date=date,
+            time=time,
+            duration=duration,
+            place=place,
+            price=price,
+        ),
+        reply_markup=keyboard,
+    )
+    return True
+
+
+async def are_you_sure(call, state):
+    """Insure at chosen option"""
+    choise = call.data
+    if choise == "change":
+        sure = "cng_app"
+    elif choise == "cancel":
+        sure = "del"
+    else:
+        await state.finish()
+        return
+
+    language_code = await language_code_give(call, state)
+    question, keyboard = await kb.two_InlineKeyboardButton(
+        language_code, "you_sure", sure, "no", f"{choise} it", "no"
+    )
+
+    await call.message.answer(question.format(choise=choise), reply_markup=keyboard)
+
+
+async def change_date_appointment(call, state):
+    procedure, date, time, duration, place, price = await nearest_appointment(call)
+    chat_id = call.message.chat.id
+    cursor.execute(
+        "UPDATE appointments SET  confirm=3 WHERE date = ? time = ? AND chat_id = ?);",
+        (date, time, chat_id),
+    )
+    conn.commit()
+
+    await ask_for_data(call, state)
+    await ST.Booking.SEL_Date.set()
+
+    # send a datas into state
+    await state.update_data(procedure=procedure)
+    await state.update_data(duration=duration)
+    await state.update_data(place=place)
+    await state.update_data(price=price)
+
+
+async def cancel_appointment(call, state):
+    """cancel the appointment"""
+    procedure, date, time, duration, place, price = nearest_appointment(call)
+    chat_id = call.message.chat.id
+    cursor.execute(
+        "UPDATE appointments SET  confirm=0 WHERE date = ? time = ? AND chat_id = ?);",
+        (date, time, chat_id),
+    )
+    conn.commit()
+
+    # take phone number
+    phone = cursor.execute("SELECT phone_number FROM users WHERE id = ?;", (chat_id,))
+    phone = cursor.fetchone()
+    phone = phone[0]
+    # Send message we will call you
     language_code = await language_code_give(call, state)
     we_will_call = await translate_text(language_code, "we_will_call")
     await call.message.answer(we_will_call.format(phone=str(phone)))

@@ -36,15 +36,17 @@
         "incorrect_data" :  "Please, input correct data format like 'DD-MM'",
         "ask_for_time" : "Chose the time of appointment",
         "incorrect_time" : "Please, input correct 24h. time format like 'hh-mm'",
-        "day_busy" : "Sorry, but this day is full, try another day",
+        "day_busy" : "Unfortunately, all appointments for this day are fully booked. We apologize for the inconvenience. Would you like to choose a different day for your appointment?",
         "approve_appointment" : "Is all datas bellow is correct?\nAppointment: ",
-
         "coordinates" : "your GPS coordinates ",
         "salon_location" : "Our salon address is ",
         "loc" : "Location :",
         "we_will_call" : "We'll call you by +{phone}",
-
-
+        "help_message" : "Main options:\n\t/reg - Use this option to register for an appointment.\n\t/book - Use this option to book an appointment.\n\t/look - Use this option to view your appointment details, change or cancel them.\n\t/lang - Use this option to change your language preference.\n\t/edit - Use this option to edit your registration information.\n\t/start - Send 'HI' to start a conversation.",
+        "your_appointment" : "Your appointment :\n{procedure},\n on {date} at {time}\nwill take {duration} minutes,\n {place} \n and will  cost {price}$ ",
+        "cng_app" : "Change Appointment",
+        "del" : "Delete",
+        "you_sure" : "Are you sure that? Do you really want to {choise} the appointment",
 
         "act_1_1" :  "Anticellulite masage",
         "act_1_1_descr" : "Anticellulite massage is a specialized massage technique designed to help reduce the appearance of cellulite on the body. This type of massage typically involves deep tissue massage, kneading, and other techniques to increase circulation, stimulate lymphatic drainage, and break down fatty deposits under the skin. The goal of the massage is to improve skin texture and tone, reduce the appearance of dimples and bumps, and create a smoother, more toned appearance overall.",
