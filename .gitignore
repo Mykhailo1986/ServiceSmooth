@@ -3,6 +3,7 @@
 .env
 aiogram_help_comments.py
 ss.db
+test.py
 myDiscovering.txt
 .idea/
 __pycache__/

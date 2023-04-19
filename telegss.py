@@ -204,7 +204,7 @@ async def extract_location_from_contact(message: types.Message, state=FSMContext
     longitude = message.location.longitude
     latitude = message.location.latitude
     # update the chat's state with the location data
-    await state.update_data(address=[latitude, longitude], time_addition=30, out=1)
+    await state.update_data(address=[latitude, longitude])
     # send a confirmation message
     await fn.ask_for_data(message, state)
     await ST.Booking.SEL_Date.set()
@@ -214,7 +214,7 @@ async def extract_location_from_contact(message: types.Message, state=FSMContext
 async def take_address_from_message(message: types.Message, state=FSMContext):
     """Take and save in state address from user inputs"""
     address = message.text
-    await state.update_data(address=address, time_addition=30, out=1)
+    await state.update_data(address=address,)
     await fn.ask_for_data(message, state)
     await ST.Booking.SEL_Date.set()
 

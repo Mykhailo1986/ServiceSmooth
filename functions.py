@@ -218,7 +218,7 @@ async def ask_contact(message, language_code):
 
 async def ask_email(message, state):
     """Ask for email"""
-    language_code = await language_code_from_state(state)
+    language_code = await language_code_give(message, state)
     ask_for_email = await translate_text(language_code, "ask_for_email")
     await message.answer(ask_for_email)
 
@@ -393,12 +393,12 @@ async def ask_for_location(message, language_code):
 
 async def our_contact(bot, obj, state):
     """give an information about location of salon and save choise in state"""
-    language_code = await language_code_from_state(state)
+    language_code = await language_code_give(obj, state)
     message = obj_processor(obj)
     # send a message to user
     salon_location = await translate_text(language_code, "salon_location")
     # send a place into state
-    await state.update_data(address=salon_location, time_addition=0, out=0)
+    await state.update_data(address="salon")
     await message.answer(salon_location)
     # # send a photo to user
     # await bot.send_photo(message.chat.id, photo=open('media/pics/kitten1.jpg', "rb"), caption="Котик")
@@ -408,7 +408,7 @@ async def our_contact(bot, obj, state):
 
 async def ask_location(call, state):
     """Ask an information about location"""
-    language_code = await language_code_from_state(state)
+    language_code = await language_code_give(call, state)
     send_location, ask_for_location = await translate_text(
         language_code, ["send_location", "ask_for_location"]
     )
@@ -475,7 +475,7 @@ def data_formatter(day):
 async def ask_for_data(obj, state):
     """Thanks for the address and ask for chose the date"""
     message = obj_processor(obj)
-    language_code = await language_code_from_state(state)
+    language_code = await language_code_give(obj, state)
     ask_for_date = await translate_text(language_code, "ask_for_date")
 
     # make 15 keys
@@ -495,7 +495,7 @@ async def ask_for_data(obj, state):
 async def day_selector(message, state):
     """hear and change the recived date in correct format save it  and ask for time"""
     # Import message text
-    language_code = await language_code_from_state(state)
+    language_code = await language_code_give(message, state)
     incorrect_data = await translate_text(language_code, "incorrect_data")
     # change Time format
     day = data_formatter(message.text)
@@ -509,13 +509,16 @@ async def day_selector(message, state):
 
 async def ask_for_time(message, state):
     # Import message text
-    language_code = await language_code_from_state(state)
+    language_code = await language_code_give(message, state)
     ask_for_time = await translate_text(language_code, "ask_for_time")
     # change Time format
     data = await state.get_data()
     day = data.get("day")
     duration = data.get("duration")
-    time_addition = data.get("time_addition")
+    time_addition = 30
+    if data.get("address")=="salon":
+        time_addition=0
+
     takes_time = duration + time_addition
     busy_time = busy_time_maker(day)
     times = give_possible_time(busy_time, duration)
@@ -533,6 +536,8 @@ async def ask_for_time(message, state):
                 "day_busy",
             ],
         )
+        if not price:
+            price=data.get("total_priсe")
         query = """
             INSERT INTO appointments
             (chat_id, date, procedure, duration, place, price, registration_time, phone , confirm)
@@ -629,7 +634,7 @@ def free_time_between_appointments(busy_time, start):
     gap_start = datetime.time.max
     for key in busy_time.keys():
         busy_end = busy_time[key]["busy_end"]
-        if busy_end < gap_start and busy_end > start:
+        if busy_end < gap_start and busy_end >= start:
             gap_start = busy_end
     # Find the gap and
     gap_end = datetime.time.max
@@ -722,7 +727,7 @@ def check_time_slot_fit(start_time, duration, gaps):
 async def time_selector(message, state):
     """hear and change the recived time in correct format save it  and ask for time"""
     # Import message text
-    language_code = await language_code_from_state(state)
+    language_code = await language_code_give(message, state)
     incorrect_time = await translate_text(language_code, "incorrect_time")
     # change Time format
     time_appointment = time_formatter(message.text)
@@ -735,7 +740,9 @@ async def time_selector(message, state):
     data = await state.get_data()
     day = data.get("day")
     duration = data.get("duration")
-    time_addition = data.get("time_addition")
+    time_addition = 3
+    if data.get("address") == "salon":
+        time_addition = 0
     # calculate time
     duration += time_addition
     busy_time = busy_time_maker(day)
@@ -762,16 +769,18 @@ async def approve_appointment(message, state):
         return False
     procedure_number = data.get("procedure_number")
     address = data.get("address")
-    place = data.get("place")
+
+
     specialist = data.get("specialist")
     kind = data.get("kind")
     out = data.get("out")
     duration = data.get("duration")
-    # time_addition it's time to get in to the place what client chose
-    time_addition = data.get("time_addition")
+    price_total = data.get("price_total")
+
+
 
     # Import message text
-    language_code = await language_code_from_state(state)
+    language_code = await language_code_give(message, state)
     (
         loc,
         act,
@@ -794,17 +803,22 @@ async def approve_appointment(message, state):
             "currency",
         ],
     )
-
+    # time_addition it's time to get in to the place what client chose
     # calculate price
-    price = only_numbers(price)
-    place_out = only_numbers(place_out)
-    price_total = int(price) + int(place_out) * out
+
     if not price_total:
-        price_total = data.get("price_total")
+        price = only_numbers(price)
+
+        if address == 'salon':
+            price_total = int(price)
+        else:
+            place_out = only_numbers(place_out)
+            price_total = int(price) + int(place_out)
+
     if data.get("procedure"):
         act = data.get("procedure")
     # calculate time
-    takes_time = duration + time_addition
+    takes_time = duration
 
     chat_id = int(message.chat.id)
     now = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
@@ -828,6 +842,8 @@ async def approve_appointment(message, state):
     approve_appointment, keyboard = await kb.two_InlineKeyboardButton(
         language_code, "approve_appointment", "yes", "change", "confirm", "book again"
     )
+    if address=="salon":
+        address=salon_location
     await message.answer(
         f"{approve_appointment}{act}\n{day} {time_appointment}\n{loc}{address}\n{price}{currency}\n{str(takes_time)}",
         reply_markup=keyboard,
@@ -861,22 +877,24 @@ async def help_message(message, state, lenguage_code):
     help_message = await translate_text(lenguage_code, "help_message")
     await message.answer(help_message)
 
-
-async def nearest_appointment(obj):
+def nearest_appointment(obj):
     """takes datta for nearest appointment"""
     message = obj_processor(obj)
-    now = datetime.datetime.now().strftime("%d-%m-%Y")
+    today = datetime.datetime.now().strftime("%d-%m-%Y")
+    now = datetime.datetime.now().strftime("%H:%M")
     chat_id = message.chat.id
+
+
     row = cursor.execute(
-        "SELECT procedure, MIN(date), time, duration, place, price FROM appointments WHERE date<=? AND confirm=1 AND chat_id=?;",
-        (now, chat_id),
+        "SELECT procedure, MIN(date), time, duration, place, price FROM appointments WHERE date>=? AND confirm=1 AND chat_id=? ORDER BY time;",
+        (today, chat_id),
     )
     row = cursor.fetchone()
-
     if row == []:
         return False
+
     else:
-        procedure, date, time, duration, place, price = (
+        procedure, date, time, duration, address, total_priсe = (
             row[0],
             row[1],
             row[2],
@@ -884,41 +902,79 @@ async def nearest_appointment(obj):
             row[4],
             row[5],
         )
-        return procedure, date, time, duration, place, price
+        return procedure, date, time, duration, address, total_priсe
+
+    #
+    # row = cursor.execute(
+    #     "SELECT procedure, MIN(date), time, duration, place, price FROM appointments WHERE date>=? AND time>?  AND confirm=1 AND chat_id=? ORDER BY time;",
+    #     (today, now, chat_id),
+    # )
+    # row = cursor.fetchone()
+    # if row == []:
+    #     tomorrow = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime("%d-%m-%Y")
+    #     rows = cursor.execute("SELECT procedure, MIN(date), time, duration, place, price FROM appointments WHERE date>=?  AND confirm=1 AND chat_id=? ORDER BY time;",
+    #         (tomorrow, chat_id),
+    #     )
+    #     rows = cursor.fetchone()
+    #     if rows == []:
+    #         return False
+    #     else:
+    #         procedure, date, time, duration, place, price = (
+    #             rows[0],
+    #             rows[1],
+    #             rows[2],
+    #             rows[3],
+    #             rows[4],
+    #             rows[5],
+    #         )
+    #         return procedure, date, time, duration, place, price
+    # else:
+    #     procedure, date, time, duration, place, price = (
+    #         row[0],
+    #         row[1],
+    #         row[2],
+    #         row[3],
+    #         row[4],
+    #         row[5],
+    #     )
+    #     return procedure, date, time, duration, place, price
 
 
-async def valid_appointments(message, state):
-    """For multiply appointments"""
-    now = datetime.datetime.now().strftime("%d-%m-%Y")
-    chat_id = message.chat.id
-    rows = cursor.execute(
-        "SELECT procedure, date, time, duration, place, price FROM appointments WHERE date>=? AND confirm=1 AND chat_id=? ORDER BY time;",
-        (now, chat_id),
-    )
-    rows = cursor.fetchall()
-    if rows == []:
-        return False
-    else:
-        i = 1
-        for row in rows:
-            procedure, date, time, duration, place, price = (
-                row[0],
-                row[1],
-                row[2],
-                row[3],
-                row[4],
-                row[5],
-            )
-            await message.answer(
-                f"Your appintment {i}:\n{procedure}, {date}, {time}, {duration}, {place}, {price} "
-            )
-            i += 1
-        return True
+
+
+# async def valid_appointments(message, state):
+#     """For multiply appointments"""
+#     today = datetime.datetime.now().strftime("%d-%m-%Y")
+#     now = datetime.datetime.now().strftime("%H:%M")
+#     chat_id = message.chat.id
+#     rows = cursor.execute(
+#         "SELECT procedure, date, time, duration, place, price FROM appointments WHERE date>=? AND time>?  AND confirm=1 AND chat_id=? ORDER BY time;",
+#         (today, now, chat_id),
+#     )
+#     rows = cursor.fetchall()
+#     if rows == []:
+#         return False
+#     else:
+#         i = 1
+#         for row in rows:
+#             procedure, date, time, duration, place, price = (
+#                 row[0],
+#                 row[1],
+#                 row[2],
+#                 row[3],
+#                 row[4],
+#                 row[5],
+#             )
+#             await message.answer(
+#                 f"Your appintment {i}:\n{procedure}, {date}, {time}, {duration}, {place}, {price} "
+#             )
+#             i += 1
+#         return True
 
 
 async def looking(language_code, message, state):
     """Send message with your appointment"""
-    procedure, date, time, duration, place, price = await nearest_appointment(message)
+    procedure, date, time, duration, address, total_priсe = nearest_appointment(message)
 
     if not procedure:
         await message.answer("у вас нет записи")
@@ -932,8 +988,8 @@ async def looking(language_code, message, state):
             date=date,
             time=time,
             duration=duration,
-            place=place,
-            price=price,
+            place=address,
+            price=total_priсe,
         ),
         reply_markup=keyboard,
     )
@@ -960,12 +1016,14 @@ async def are_you_sure(call, state):
 
 
 async def change_date_appointment(call, state):
-    procedure, date, time, duration, place, price = await nearest_appointment(call)
+    procedure, date, time, duration, address, total_priсe = nearest_appointment(call)
     chat_id = call.message.chat.id
+    await call.message.answer(time)
     cursor.execute(
-        "UPDATE appointments SET  confirm=3 WHERE date = ? time = ? AND chat_id = ?);",
+        "UPDATE appointments SET confirm=3 WHERE date=? AND time=? AND chat_id=?",
         (date, time, chat_id),
     )
+
     conn.commit()
 
     await ask_for_data(call, state)
@@ -974,13 +1032,13 @@ async def change_date_appointment(call, state):
     # send a datas into state
     await state.update_data(procedure=procedure)
     await state.update_data(duration=duration)
-    await state.update_data(place=place)
-    await state.update_data(price=price)
+    await state.update_data(address=address)
+    await state.update_data(total_priсe=total_priсe)
 
 
 async def cancel_appointment(call, state):
     """cancel the appointment"""
-    procedure, date, time, duration, place, price = nearest_appointment(call)
+    procedure, date, time, duration, address, price = nearest_appointment(call)
     chat_id = call.message.chat.id
     cursor.execute(
         "UPDATE appointments SET  confirm=0 WHERE date = ? time = ? AND chat_id = ?);",
