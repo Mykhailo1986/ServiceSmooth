@@ -37,6 +37,7 @@
         "ask_for_time" : "Chose the time of appointment",
         "incorrect_time" : "Please, input correct 24h. time format like 'hh-mm'",
         "day_busy" : "Unfortunately, all appointments for this day are fully booked. We apologize for the inconvenience. Would you like to choose a different day for your appointment?",
+        "time_busy" : "Unfortunately, you can't have appointment at this time",
         "approve_appointment" : "Is all datas bellow is correct?\nAppointment: ",
         "coordinates" : "your GPS coordinates ",
         "salon_location" : "Our salon address is ",

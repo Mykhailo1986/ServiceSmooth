@@ -18,7 +18,7 @@ working_time = {"work_start": datetime.time(8, 0), "work_end": datetime.time(18,
     look in procedure_chosen in telegrass.py
     and look in text.json FROM line "act_1_1" ... TO line "time_act_1_5"
 """
-"""confirm:
+"""status:
 None = not ended 
  1 = correct agried with user
  2 = not fit in time
@@ -540,7 +540,7 @@ async def ask_for_time(message, state):
             price=data.get("total_priсe")
         query = """
             INSERT INTO appointments
-            (chat_id, date, procedure, duration, place, price, registration_time, phone , confirm)
+            (chat_id, date, procedure, duration, place, price, registration_time, phone , status)
             VALUES (?, ?, ?, ?, ?, ?, ?,(SELECT phone_number FROM users WHERE id = ?), 2)
             """
         cursor.execute(
@@ -564,7 +564,7 @@ def busy_time_maker(day):
     busy_time = {}
 
     rows = cursor.execute(
-        "SELECT time, duration FROM appointments WHERE date=? AND confirm=1 ORDER BY time;",
+        "SELECT time, duration FROM appointments WHERE date=? AND status=1 ORDER BY time;",
         (day,),
     )
     rows = cursor.fetchall()
@@ -728,7 +728,7 @@ async def time_selector(message, state):
     """hear and change the recived time in correct format save it  and ask for time"""
     # Import message text
     language_code = await language_code_give(message, state)
-    incorrect_time = await translate_text(language_code, "incorrect_time")
+    incorrect_time, time_busy = await translate_text(language_code, ["incorrect_time","time_busy"])
     # change Time format
     time_appointment = time_formatter(message.text)
 
@@ -749,7 +749,7 @@ async def time_selector(message, state):
     gaps = available_time_slots(busy_time, duration)
     # check if the time for fit in gap
     if not check_time_slot_fit(time_appointment, duration, gaps):
-        await message.answer("Виберыть ынший час")
+        await message.answer(time_busy)
         await ask_for_time(message, state)
         time_appointment = None
 
@@ -840,7 +840,7 @@ async def approve_appointment(message, state):
 
     # add buttons
     approve_appointment, keyboard = await kb.two_InlineKeyboardButton(
-        language_code, "approve_appointment", "yes", "change", "confirm", "book again"
+        language_code, "approve_appointment", "yes", "change", "status", "book again"
     )
     if address=="salon":
         address=salon_location
@@ -860,7 +860,7 @@ async def confirm_appointment(call, state):
     phone = phone[0]
     # input confirm and  phone number in DB
     cursor.execute(
-        "UPDATE appointments SET phone=?, confirm=1 WHERE id = (SELECT id FROM appointments WHERE registration_time = (SELECT MAX(registration_time) FROM appointments WHERE chat_id = ?) AND chat_id = ?);",
+        "UPDATE appointments SET phone=?, status=1 WHERE id = (SELECT id FROM appointments WHERE registration_time = (SELECT MAX(registration_time) FROM appointments WHERE chat_id = ?) AND chat_id = ?);",
         (phone, chat_id, chat_id),
     )
     conn.commit()
@@ -886,7 +886,7 @@ def nearest_appointment(obj):
 
 
     row = cursor.execute(
-        "SELECT procedure, MIN(date), time, duration, place, price FROM appointments WHERE date>=? AND confirm=1 AND chat_id=? ORDER BY time;",
+        "SELECT procedure, MIN(date), time, duration, place, price FROM appointments WHERE date>=? AND status=1 AND chat_id=? ORDER BY time;",
         (today, chat_id),
     )
     row = cursor.fetchone()
@@ -906,13 +906,13 @@ def nearest_appointment(obj):
 
     #
     # row = cursor.execute(
-    #     "SELECT procedure, MIN(date), time, duration, place, price FROM appointments WHERE date>=? AND time>?  AND confirm=1 AND chat_id=? ORDER BY time;",
+    #     "SELECT procedure, MIN(date), time, duration, place, price FROM appointments WHERE date>=? AND time>?  AND status=1 AND chat_id=? ORDER BY time;",
     #     (today, now, chat_id),
     # )
     # row = cursor.fetchone()
     # if row == []:
     #     tomorrow = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime("%d-%m-%Y")
-    #     rows = cursor.execute("SELECT procedure, MIN(date), time, duration, place, price FROM appointments WHERE date>=?  AND confirm=1 AND chat_id=? ORDER BY time;",
+    #     rows = cursor.execute("SELECT procedure, MIN(date), time, duration, place, price FROM appointments WHERE date>=?  AND status=1 AND chat_id=? ORDER BY time;",
     #         (tomorrow, chat_id),
     #     )
     #     rows = cursor.fetchone()
@@ -948,7 +948,7 @@ def nearest_appointment(obj):
 #     now = datetime.datetime.now().strftime("%H:%M")
 #     chat_id = message.chat.id
 #     rows = cursor.execute(
-#         "SELECT procedure, date, time, duration, place, price FROM appointments WHERE date>=? AND time>?  AND confirm=1 AND chat_id=? ORDER BY time;",
+#         "SELECT procedure, date, time, duration, place, price FROM appointments WHERE date>=? AND time>?  AND status=1 AND chat_id=? ORDER BY time;",
 #         (today, now, chat_id),
 #     )
 #     rows = cursor.fetchall()
@@ -1018,12 +1018,13 @@ async def are_you_sure(call, state):
 async def change_date_appointment(call, state):
     procedure, date, time, duration, address, total_priсe = nearest_appointment(call)
     chat_id = call.message.chat.id
-    await call.message.answer(time)
-    cursor.execute(
-        "UPDATE appointments SET confirm=3 WHERE date=? AND time=? AND chat_id=?",
-        (date, time, chat_id),
-    )
 
+    now=call.message.date.strftime("%d-%m-%Y %H:%M")
+    now = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
+    cursor.execute(
+        "UPDATE appointments SET status=3, changed=? WHERE date=? AND time=? AND chat_id=?",
+        (now, date, time, chat_id),
+    )
     conn.commit()
 
     await ask_for_data(call, state)
@@ -1040,9 +1041,10 @@ async def cancel_appointment(call, state):
     """cancel the appointment"""
     procedure, date, time, duration, address, price = nearest_appointment(call)
     chat_id = call.message.chat.id
+    now = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
     cursor.execute(
-        "UPDATE appointments SET  confirm=0 WHERE date = ? time = ? AND chat_id = ?);",
-        (date, time, chat_id),
+        "UPDATE appointments SET status=0, changed=? WHERE date=? AND time=? AND chat_id=?",
+        (now, date, time, chat_id),
     )
     conn.commit()
 
