@@ -972,18 +972,21 @@ def nearest_appointment(obj):
 #         return True
 
 
-async def looking(language_code, message, state):
+async def looking(language_code, obj, procedure, date, time, duration, address, total_priсe):
     """Send message with your appointment"""
-    procedure, date, time, duration, address, total_priсe = nearest_appointment(message)
-
+    message = obj_processor(obj)
     if not procedure:
-        await message.answer("у вас нет записи")
+        none = await translate_text(language_code, "none_appointment")
+        await message.answer(none)
         return False
     appointment, keyboard = await kb.two_InlineKeyboardButton(
-        language_code, "your_appointment", "cng_app", "del", "change", "cancel"
+        language_code, "your_appointment", "cng_app", "look_aps", "chen_del", "look another"
     )
+    if address == "salon":
+        address = await translate_text(language_code, "salon_location")
     await message.answer(
         appointment.format(
+            n='',
             procedure=procedure,
             date=date,
             time=time,
@@ -995,7 +998,69 @@ async def looking(language_code, message, state):
     )
     return True
 
+async def looking_another(call,state):
+    '''Looks for another appointments'''
+    language_code= await language_code_give(call, state)
+    today = datetime.datetime.now().strftime("%d-%m-%Y")
+    chat_id = call.message.chat.id
+    rows = cursor.execute(
+        "SELECT procedure, date, time, duration, place, price FROM appointments WHERE date>=? AND status=1 AND chat_id=? ORDER BY date, time;",
+        (today, chat_id),
+    )
 
+    rows = cursor.fetchall()
+    if rows == []:
+        none=await translate_text(language_code,"none_appointment")
+        await call.message.answer(none)
+        return False
+    else:
+        i = 1
+        for row in rows:
+            procedure, date, time, duration, place, price = (
+                row[0],
+                row[1],
+                row[2],
+                row[3],
+                row[4],
+                row[5],
+            )
+            # await  call.message.answer(f"{procedure, date, time, duration, place, price}")
+            your_appointment=await translate_text(language_code, "your_appointment")
+            if place == "salon":
+                place =await translate_text(language_code, "salon_location")
+            await call.message.answer(
+                your_appointment.format(
+                    n=i,
+                    procedure=procedure,
+                    date=date,
+                    time=time,
+                    duration=duration,
+                    place=place,
+                    price=price,
+                ),
+
+            )
+            i += 1
+
+        return rows
+
+async def change_delete(call, state):
+    '''gives an option to change the appointment od delete it '''
+    language_code = await language_code_give(call, state)
+
+    change_delete, cahnge_button, no_button, del_button = await translate_text(
+        language_code, ["change_delete", "cng_app", "no", "del"]
+    )
+
+    markup = types.InlineKeyboardMarkup()
+
+    markup.row(
+        types.InlineKeyboardButton(cahnge_button, callback_data="change"),
+        types.InlineKeyboardButton(no_button, callback_data="no"),
+        types.InlineKeyboardButton(del_button, callback_data="cancel"),
+    )
+
+    await call.message.answer(change_delete, reply_markup=markup)
 async def are_you_sure(call, state):
     """Insure at chosen option"""
     choise = call.data

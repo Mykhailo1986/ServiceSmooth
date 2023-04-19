@@ -80,9 +80,21 @@ async def looking(message=types.Message, state=FSMContext):
     language_code = await fn.language_code_give(message, state)
     if not language_code:
         await language_start(message)
-    if await fn.looking(language_code, message, state):
+    procedure, date, time, duration, address, total_priсe = fn.nearest_appointment(message)
+    if await fn.looking(language_code, message,  procedure, date, time, duration, address, total_priсe):
         await ST.ServiseSmoothState.CHOOSE_lOOK.set()
 
+@dp.callback_query_handler(
+    lambda c: c.data == "look another", state=ST.ServiseSmoothState.CHOOSE_lOOK
+)
+async def look_another(call, state=FSMContext):
+    await fn.looking_another(call, state)
+
+@dp.callback_query_handler(
+    lambda c: c.data == "chen_del", state=ST.ServiseSmoothState.CHOOSE_lOOK
+)
+async def change_delete(call, state=FSMContext):
+    await fn.change_delete(call, state)
 
 @dp.callback_query_handler(
     lambda c: c.data in {"change", "cancel"}, state=ST.ServiseSmoothState.CHOOSE_lOOK
