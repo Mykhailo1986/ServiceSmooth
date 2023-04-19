@@ -1,13 +1,18 @@
 from aiogram import types
 import re
+from dotenv import load_dotenv
+
+import os
 import json
 import keyboards as kb
 import sqlite3
 import datetime
 import states as ST
 
+
+load_dotenv()
 # Connect to the database
-conn = sqlite3.connect("ss.db")
+conn = sqlite3.connect(os.getenv("DB"))
 cursor = conn.cursor()
 # from datetime import datetime
 
@@ -22,8 +27,8 @@ working_time = {"work_start": datetime.time(8, 0), "work_end": datetime.time(18,
 None = not ended 
  1 = correct agried with user
  2 = not fit in time
- 3 = changed
- 0 = cancelled
+ 3 = changed by user
+ 0 = cancelled by user
  """
 
 
@@ -840,7 +845,7 @@ async def approve_appointment(message, state):
 
     # add buttons
     approve_appointment, keyboard = await kb.two_InlineKeyboardButton(
-        language_code, "approve_appointment", "yes", "change", "status", "book again"
+        language_code, "approve_appointment", "yes", "change", "confirm", "book again"
     )
     if address=="salon":
         address=salon_location
@@ -904,72 +909,6 @@ def nearest_appointment(obj):
         )
         return procedure, date, time, duration, address, total_priсe
 
-    #
-    # row = cursor.execute(
-    #     "SELECT procedure, MIN(date), time, duration, place, price FROM appointments WHERE date>=? AND time>?  AND status=1 AND chat_id=? ORDER BY time;",
-    #     (today, now, chat_id),
-    # )
-    # row = cursor.fetchone()
-    # if row == []:
-    #     tomorrow = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime("%d-%m-%Y")
-    #     rows = cursor.execute("SELECT procedure, MIN(date), time, duration, place, price FROM appointments WHERE date>=?  AND status=1 AND chat_id=? ORDER BY time;",
-    #         (tomorrow, chat_id),
-    #     )
-    #     rows = cursor.fetchone()
-    #     if rows == []:
-    #         return False
-    #     else:
-    #         procedure, date, time, duration, place, price = (
-    #             rows[0],
-    #             rows[1],
-    #             rows[2],
-    #             rows[3],
-    #             rows[4],
-    #             rows[5],
-    #         )
-    #         return procedure, date, time, duration, place, price
-    # else:
-    #     procedure, date, time, duration, place, price = (
-    #         row[0],
-    #         row[1],
-    #         row[2],
-    #         row[3],
-    #         row[4],
-    #         row[5],
-    #     )
-    #     return procedure, date, time, duration, place, price
-
-
-
-
-# async def valid_appointments(message, state):
-#     """For multiply appointments"""
-#     today = datetime.datetime.now().strftime("%d-%m-%Y")
-#     now = datetime.datetime.now().strftime("%H:%M")
-#     chat_id = message.chat.id
-#     rows = cursor.execute(
-#         "SELECT procedure, date, time, duration, place, price FROM appointments WHERE date>=? AND time>?  AND status=1 AND chat_id=? ORDER BY time;",
-#         (today, now, chat_id),
-#     )
-#     rows = cursor.fetchall()
-#     if rows == []:
-#         return False
-#     else:
-#         i = 1
-#         for row in rows:
-#             procedure, date, time, duration, place, price = (
-#                 row[0],
-#                 row[1],
-#                 row[2],
-#                 row[3],
-#                 row[4],
-#                 row[5],
-#             )
-#             await message.answer(
-#                 f"Your appintment {i}:\n{procedure}, {date}, {time}, {duration}, {place}, {price} "
-#             )
-#             i += 1
-#         return True
 
 
 async def looking(language_code, obj, procedure, date, time, duration, address, total_priсe):

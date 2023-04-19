@@ -49,6 +49,10 @@ async def help(message=types.Message, state=FSMContext):
         await language_start(message)
     fn.help_message(message, state, language_code)
 
+@dp.message_handler(commands=["our"], state="*")
+async def help(message=types.Message, state=FSMContext):
+    """send message about saloon"""
+    await fn.our_contact(bot, message, state)
 
 @dp.message_handler(commands=["reg"], state="*")
 async def registration_start(message=types.Message, state=FSMContext):
