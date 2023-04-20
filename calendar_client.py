@@ -36,15 +36,6 @@ class GoogleCalendar:
     def add_event(self, calendar_id, body):
         return self.service.events().insert(calendarId=calendar_id, body=body).execute()
 
-    def get_events_from_to(self, calendar_id, start_date, end_date):
-        start_date = datetime.datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%S")
-        time_min = start_date.isoformat() + 'Z'  # add 'Z' for UTC time
-        end_date = datetime.datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%S")
-        time_max = end_date.isoformat() + 'Z'
-        events_result = self.service.events().list(calendarId=calendar_id, timeMin=time_min, timeMax=time_max).execute()
-        events = events_result.get('items', [])
-        return events
-
     def get_events(self, calendar_id, date):
         start_date = datetime.datetime.strptime(date, '%Y-%m-%d')
         end_date = start_date + datetime.timedelta(days=1)
@@ -53,6 +44,33 @@ class GoogleCalendar:
         events_result = self.service.events().list(calendarId=calendar_id, timeMin=time_min, timeMax=time_max).execute()
         events = events_result.get('items', [])
         return events
+
+
+    def del_event(self, calendar_id, date, start_time):#, phone):
+        for event in self.get_events(calendar_id, date):
+            if event['start']['dateTime'] == f"{date}T{start_time}+03:00":
+                return self.service.events().delete(calendarId=calendar_id, eventId=event['id']).execute()
+
+        #     events = self.get_events(calendar_id, date)
+    #     for event in events:
+    #         # if event['description'] == phone and event['start']['dateTime'] == f"{date}T{start_time}+03:00":
+    #         if event['start']['dateTime'] == f"{date}T{start_time}+03:00":
+    #             id = event['id']
+    #             return self.service.events().delete(calendarId=calendar_id, eventId=id).execute()
+    #
+    #     return None
+
+
+    def _get_events_from_to(self, calendar_id, start_date, end_date):
+        start_date = datetime.datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%S")
+        time_min = start_date.isoformat() + 'Z'  # add 'Z' for UTC time
+        end_date = datetime.datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%S")
+        time_max = end_date.isoformat() + 'Z'
+        events_result = self.service.events().list(calendarId=calendar_id, timeMin=time_min, timeMax=time_max).execute()
+        events = events_result.get('items', [])
+        return events
+
+
 
 
 def create_event(date,start_time):
@@ -90,12 +108,13 @@ calendar = GoogleCalendar()
 # event=create_event(date,start_time)
 # # calendar.add_event(calendar_id=calendar_id,body=event)
 # pprint.pprint(calendar.get_events(calendar_id=calendar_id, start_date="2023-04-18T07:00:00", end_date="2023-04-21T10:00:00"))
-# pprint.pprint(calendar.get_events(calendar_id=calendar_id, date="2023-04-20"))
+pprint.pprint(calendar.get_events(calendar_id=calendar_id, date="2023-04-20"))
 # events=[{'end': {'dateTime': '2023-04-20T16:00:00+03:00', 'timeZone': 'UTC'},
 # 'start': {'dateTime': '2023-04-20T15:00:00+03:00', 'timeZone': 'UTC'}
 #   }]
 
-
+calendar.del_event(calendar_id=calendar_id,date='2023-04-20',start_time="23:00:00")
+pprint.pprint(calendar.get_events(calendar_id=calendar_id, date="2023-04-20"))
 
 # events= calendar.get_events(calendar_id=calendar_id,date='2023-04-20')
 

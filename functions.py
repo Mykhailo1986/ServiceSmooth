@@ -569,10 +569,7 @@ def busy_time_maker(day):
 
     """Takes the appointments from DB and create the dictionary with it for day"""
     busy_time = {}
-
     events = calendar.get_events(calendar_id=calendar_id, date=day)
-
-
 
     if datetime.datetime.now().strftime('%Y-%m-%d') == day:
         busy_end = datetime.datetime.strptime(
@@ -586,8 +583,6 @@ def busy_time_maker(day):
         "busy_start": datetime.time.min,
         "busy_end": busy_end,
     }
-
-
 
     for i, event in enumerate(events):
         start_time = event['start']['dateTime'][11:19]
