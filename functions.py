@@ -782,6 +782,7 @@ async def approve_appointment(message, state):
     out = data.get("out")
     duration = data.get("duration")
     price_total = data.get("price_total")
+    procedure_number = data.get("procedure_number")
 
 
 
@@ -830,7 +831,7 @@ async def approve_appointment(message, state):
     now=message.date
 
     cursor.execute(
-        "INSERT INTO appointments (chat_id, date, time, procedure, duration, place, price, registration_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO appointments (chat_id, date, time, procedure, duration, place, price, registration_time, procedure_number, kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             chat_id,
             day,
@@ -840,6 +841,8 @@ async def approve_appointment(message, state):
             address,
             int(price_total),
             now,
+            procedure_number,
+            kind,
         ),
     )
     conn.commit()
@@ -878,9 +881,9 @@ async def confirm_appointment(call, state):
     await call.message.answer(we_will_call.format(phone=str(phone)))
 
 
-async def help_message(message, state, lenguage_code):
+async def help_message(message, state, language_code):
     """send message about possible options"""
-    help_message = await translate_text(lenguage_code, "help_message")
+    help_message = await translate_text(language_code, "help_message")
     await message.answer(help_message)
 
 def nearest_appointment(obj):
@@ -892,7 +895,7 @@ def nearest_appointment(obj):
 
 
     row = cursor.execute(
-        "SELECT procedure, MIN(date), time, duration, place, price FROM appointments WHERE date>=? AND status=1 AND chat_id=? ORDER BY time;",
+        "SELECT procedure, MIN(date), time, duration, place, price, registration_time, procedure_number, kind FROM appointments WHERE date>=? AND status=1 AND chat_id=? ORDER BY time;",
         (today, chat_id),
     )
     row = cursor.fetchone()
@@ -900,15 +903,18 @@ def nearest_appointment(obj):
         return False
 
     else:
-        procedure, date, time, duration, address, total_priсe = (
+        procedure, date, time, duration, address, total_priсe, registration_time, procedure_number, kind = (
             row[0],
             row[1],
             row[2],
             row[3],
             row[4],
             row[5],
+            row[6],
+            row[7],
+            row[8],
         )
-        return procedure, date, time, duration, address, total_priсe
+        return procedure, date, time, duration, address, total_priсe, registration_time, procedure_number, kind
 
 
 
@@ -1022,7 +1028,7 @@ async def are_you_sure(call, state):
 
 
 async def change_date_appointment(call, state):
-    procedure, date, time, duration, address, total_priсe = nearest_appointment(call)
+    procedure, date, time, duration, address, total_priсe, registration_time, procedure_number, kind = nearest_appointment(call)
     chat_id = call.message.chat.id
 
     now=call.message.date
@@ -1036,10 +1042,14 @@ async def change_date_appointment(call, state):
     await ST.Booking.SEL_Date.set()
 
     # send a datas into state
-    await state.update_data(procedure=procedure)
-    await state.update_data(duration=duration)
+    await state.update_data(kind=kind)
     await state.update_data(address=address)
+    await state.update_data(duration=duration)
+    await state.update_data(procedure=procedure)
     await state.update_data(total_priсe=total_priсe)
+    await state.update_data(procedure_number=procedure_number)
+    await state.update_data(registration_time=registration_time)
+
 
 
 async def cancel_appointment(call, state):
@@ -1063,94 +1073,19 @@ async def cancel_appointment(call, state):
     await call.message.answer(we_will_call.format(phone=str(phone)))
 
 
-# busy_time_maker('23-04-2023')
-#
-#     # Calculate the start time for the next available slot
-#     start_time = datetime.datetime.combine(datetime.date.today(), last_busy_end) + datetime.timedelta(minutes=duration)
-#
-#     # Create a list of available time slots
-#     available_times = []
-#     for hour in range(start_time.hour, 24):
-#         start = datetime.datetime.combine(datetime.date.today(), datetime.time(hour=hour, minute=0, second=0))
-#         end = start + datetime.timedelta(minutes=duration)
-#         overlaps = False
-#         for key in busy_time.keys():
-#             busy_start = busy_time[key]["busy_start"]
-#             busy_end = busy_time[key]["busy_end"]
-#             busy_range = (busy_start, busy_end)
-#             slot_range = (start.time(), end.time())
-#             if overlap(busy_range, slot_range):
-#                 overlaps = True
-#                 break
-#         if not overlaps and end.time() <= busy_start:
-#             available_times.append((start.time(), end.time()))
-#
-#     return available_times
-#
-#
-# # Helper function to check if two time ranges overlap
-# def overlap(range1, range2):
-#     return not (range1[1] <= range2[0] or range2[1] <= range1[0])
 
 
-# get_available_times(busy_time, duration)
 
-# async def time_selector(message,state):
-#
-#     '''change the recived date in correct format save it  and ask for time '''
-#     # Import message text
-#     language_code = await language_code_from_state(state)
-#     incorrect_data, ask_for_time = await translate_text(
-#         language_code, ["incorrect_data", "ask_for_time"])
-#     # change Time format
-#
-#     time= time_formatter(message.text)
-#     if not day:
-#             await message.reply(incorrect_data)
-#             await ask_for_data(message, state)
-#             return None
-#     # save time format in state
-#     await state.update_data(day=day)
-#     await message.answer(ask_for_time)
-
-# async def go_ask_for_location(message, state):
-#     '''create message that "No option has been selected." and go to chose an place'''
-#     # take the language code
+# async def exit(obj, state):
+#     message = obj_processor(obj)
 #     language_code = await language_code_give(message, state)
-#     # sand the message that nothing chosen
-#     no_choice = await translate_text(language_code,"no_choice")
-#     await message.answer(no_choice)
-#     await ask_for_location(message, language_code)
+#     exit = await translate_text(language_code, "exit")
+#     await message.answer(exit)
+#     await state.finish()
 #
-
-
-# async def agree_registration_in_booking(mesage,sate)
-#     language_code = await language_code_from_state()
-# async def correct_registration(obj):
-#     if isinstance(obj, types.Message):
-#         chat_id = int(obj.chat.id)
-#         message = obj
-#     elif isinstance(obj, types.CallbackQuery):
-#         chat_id = int(obj.message.chat.id)
-#         call = obj
-#         message = obj.message
-#     language_code = await languageCoge_check(chat_id)
 #
-#     keyboard = await kb.plusural_button(["hello","/start","win"])
-#
-#     await message.answer("question", reply_markup=keyboard)
-
-
-async def exit(obj, state):
-    message = obj_processor(obj)
-    language_code = await language_code_give(message, state)
-    exit = await translate_text(language_code, "exit")
-    await message.answer(exit)
-    await state.finish()
-
-
-async def exit_button():
-    """Create a keyboard with one button"""
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
-    keyboard.add(types.KeyboardButton("/exit"))
-    return keyboard
+# async def exit_button():
+#     """Create a keyboard with one button"""
+#     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
+#     keyboard.add(types.KeyboardButton("/exit"))
+#     return keyboard

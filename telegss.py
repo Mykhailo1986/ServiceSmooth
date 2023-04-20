@@ -177,16 +177,19 @@ async def booking(message=types.Message, state=FSMContext):
     #     await fn.ask_for_specialist(message, language_code)
     #
     # @dp.message_handler(lambda c : c.text== ("1"), state=ST.Booking.SEL_Spec )
-    # async def specialist_cosen(message=types.Message, state=FSMContext):
-    #     '''Mesage the shoisen specialist'''
+    # async def specialist_chosen(message=types.Message, state=FSMContext):
+    #     '''Message the chosen specialist'''
     #     language_code=await fn.language_code_give(message,state)
     #     await fn.specialist_name(language_code, message)
-    #     # Save the specialist and kind of procedureghjgecnbk
+    #     # Save the specialist and kind of procedure
     #     await state.update_data(kind="massage")
-    #     await state.update_data(specialict="1")
+    #     await state.update_data(specialist="1")
     #     # Run the message with list of procedure
     await fn.chose_massage_procedure_propose(language_code, message)
     await ST.Booking.SEL_Proc.set()
+
+    # For 1 massagist
+    await state.update_data(kind="massage")
 
 
 @dp.message_handler(
