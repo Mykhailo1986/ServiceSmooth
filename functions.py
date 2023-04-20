@@ -748,13 +748,14 @@ def give_possible_time(busy_time, duration):
             datetime.datetime.combine(datetime.date.today(), end_time) - duration
         )
         # add other times with exact hours
-        while current_time <= end_datetime - datetime.timedelta(minutes=15):
-            current_time += datetime.timedelta(minutes=15)
-            if current_time.time() in hours:
-                times.append(current_time.time())
-        # add last possible time
+        for hour in hours:
+            if end_datetime.time() > hour > current_time.time() :
+                if not hour in times:
+                    times.append(hour)
+
         if not end_datetime.time() in times:
             times.append(end_datetime.time())
+
     return times
 
 
@@ -763,7 +764,11 @@ def check_time_slot_fit(start_time, duration, gaps):
     end_time = datetime.datetime.combine(
         datetime.date.today(), start_time
     ) + datetime.timedelta(minutes=duration)
-    start_time = datetime.datetime.combine(datetime.date.today(), start_time)
+
+    start_time = datetime.datetime.combine(
+        datetime.date.today(), start_time
+    ) + datetime.timedelta(minutes=2)
+
     for gap in gaps:
         gap_start = datetime.datetime.combine(datetime.date.today(), gap[0])
         gap_end = datetime.datetime.combine(datetime.date.today(), gap[1])

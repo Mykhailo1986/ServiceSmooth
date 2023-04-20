@@ -68,7 +68,8 @@ def create_event(date,start_time):
             'dateTime': '2023-04-20T10:00:00-03:00',
 
         },
-
+        'colorId' : 1,
+        # 'id' : '',
 
         # 'reminders': {
         #     'useDefault': False,
@@ -76,7 +77,7 @@ def create_event(date,start_time):
         #         {'method': 'email', 'minutes': 24 * 60},
         #         {'method': 'popup', 'minutes': 10},
         #     ],
-        # },
+        #  },
     }
     return event
 
