@@ -8,6 +8,7 @@ import keyboards as kb
 import sqlite3
 import datetime
 import states as ST
+from calendar_client import calendar,calendar_id
 
 
 load_dotenv()
@@ -16,8 +17,8 @@ conn = sqlite3.connect(os.getenv("DB"))
 cursor = conn.cursor()
 # from datetime import datetime
 
-working_time = {"work_start": datetime.time(8, 0), "work_end": datetime.time(18, 0)}
-
+working_time = {"work_start": datetime.time(8, 0), "work_end": datetime.time(22, 0)}
+rest_days = [datetime.date(2023, 4, 16), datetime.date(2023, 4, 17)]
 
 """FOR MAX procedure search for n=5
     look in procedure_chosen in telegrass.py
@@ -426,8 +427,8 @@ def fifteen_days(n):
     """Return 15 days from todey exept rest_days"""
     current_date = datetime.datetime.now().date()
     dates = [current_date + datetime.timedelta(days=x) for x in range(n)]
-    # rest_day = datetime.date(2023, 4, 16)  # example date to exclude
-    rest_days = [datetime.date(2023, 4, 16), datetime.date(2023, 4, 17)]
+    rest_day = datetime.date(2023, 4, 16)  # example date to exclude
+
     for rest_day in rest_days:
         if rest_day in dates:
             dates.remove(rest_day)
@@ -564,21 +565,20 @@ async def ask_for_time(message, state):
     await message.answer(ask_for_time, reply_markup=markup_request)
     return True
 
-
 def busy_time_maker(day):
+
     """Takes the appointments from DB and create the dictionary with it for day"""
     busy_time = {}
 
-    rows = cursor.execute(
-        "SELECT time, duration FROM appointments WHERE date=? AND status=1 ORDER BY time;",
-        (day,),
-    )
-    rows = cursor.fetchall()
+    events = calendar.get_events(calendar_id=calendar_id, date=day)
+
+
 
     if datetime.datetime.now().strftime('%Y-%m-%d') == day:
         busy_end = datetime.datetime.strptime(
-            datetime.datetime.now().strftime('%H:%M'), '%H:%M'
+            datetime.datetime.now().strftime('%H:%M:%S'), '%H:%M:%S'
         ).time()
+
     else:
         busy_end = working_time["work_start"]
 
@@ -587,22 +587,66 @@ def busy_time_maker(day):
         "busy_end": busy_end,
     }
 
-    for i, row in enumerate(rows):
+
+
+    for i, event in enumerate(events):
+        start_time = event['start']['dateTime'][11:19]
+        end_time = event['end']['dateTime'][11:19]
         appointment = {
-            "busy_start": datetime.datetime.strptime(row[0], '%H:%M:%S').time(),
-            "busy_end": (
-                datetime.datetime.strptime(row[0], '%H:%M:%S')
-                + datetime.timedelta(minutes=row[1] + 15)
-            ).time(),
+            "busy_start": datetime.datetime.strptime(start_time, '%H:%M:%S').time(),
+            "busy_end": datetime.datetime.strptime(end_time, '%H:%M:%S').time()
         }
         busy_time[f"Appointment{i}"] = appointment
 
     busy_time["night"] = {
-        "busy_start": working_time["work_end"],
-        "busy_end": datetime.time.max,
-    }
+            "busy_start": working_time["work_end"],
+            "busy_end": datetime.time.max,
+        }
 
     return busy_time
+
+# OLD VERSION BEFORE GOOGLE CALENDAR
+
+# def busy_time_maker(day):
+
+#     """Takes the appointments from DB and create the dictionary with it for day"""
+#     busy_time = {}
+#
+#     rows = cursor.execute(
+#         "SELECT time, duration FROM appointments WHERE date=? AND status=1 ORDER BY time;",
+#         (day,),
+#     )
+#     rows = cursor.fetchall()
+#
+#     if datetime.datetime.now().strftime('%Y-%m-%d') == day:
+#         busy_end = datetime.datetime.strptime(
+#             datetime.datetime.now().strftime('%H:%M'), '%H:%M'
+#         ).time()
+#     else:
+#         busy_end = working_time["work_start"]
+#
+#     busy_time["morning"] = {
+#         "busy_start": datetime.time.min,
+#         "busy_end": busy_end,
+#     }
+#
+#     for i, row in enumerate(rows):
+#         appointment = {
+#             "busy_start": datetime.datetime.strptime(row[0], '%H:%M:%S').time(),
+#             "busy_end": (
+#                 datetime.datetime.strptime(row[0], '%H:%M:%S')
+#                 + datetime.timedelta(minutes=row[1] + 15)
+#             ).time(),
+#         }
+#         busy_time[f"Appointment{i}"] = appointment
+#
+#
+#     busy_time["night"] = {
+#         "busy_start": working_time["work_end"],
+#         "busy_end": datetime.time.max,
+#     }
+#
+#     return busy_time
 
 
 def time_formatter(text):
