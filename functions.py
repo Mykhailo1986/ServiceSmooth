@@ -8,7 +8,7 @@ import keyboards as kb
 import sqlite3
 import datetime
 import states as ST
-from calendar_client import calendar,calendar_id
+from calendar_client import calendar,calendar_id,create_event_body2
 
 
 load_dotenv()
@@ -566,19 +566,19 @@ async def ask_for_time(message, state):
     return True
 
 def busy_time_maker(day):
-
-    """Takes the appointments from DB and create the dictionary with it for day"""
+    """Takes the appointments from Google calendar and create the dictionary with it for day"""
     busy_time = {}
+    # ask from google calendar events
     events = calendar.get_events(calendar_id=calendar_id, date=day)
-
+    # create start if the day is today
     if datetime.datetime.now().strftime('%Y-%m-%d') == day:
         busy_end = datetime.datetime.strptime(
             datetime.datetime.now().strftime('%H:%M:%S'), '%H:%M:%S'
         ).time()
-
     else:
         busy_end = working_time["work_start"]
 
+    # create a busy time dictionary
     busy_time["morning"] = {
         "busy_start": datetime.time.min,
         "busy_end": busy_end,
@@ -809,7 +809,7 @@ async def time_selector(message, state):
 
 async def approve_appointment(message, state):
     """send message with approve appointment"""
-    # load datas from sate
+    # load datas from state
     data = await state.get_data()
     day = data.get("day")
     time_appointment = data.get("time_appointment")
@@ -898,14 +898,47 @@ async def approve_appointment(message, state):
     if address=="salon":
         address=salon_location
     await message.answer(
-        f"{approve_appointment}{act}\n{day} {time_appointment}\n{loc}{address}\n{price}{currency}\n{str(takes_time)}",
+        f"{approve_appointment}{act}\n{day} {time_appointment}\n{loc}{address}\n{price_total}{currency}\n{str(takes_time)}",
         reply_markup=keyboard,
     )
 
 
+async def create_en_event(call, state, phone):
+    '''Create the event with appointment'''
+    # assign language code
+    language_code = "en"
+    # load datas from state
+    data = await state.get_data()
+    day = data.get("day")
+    time_appointment = data.get("time_appointment")
+    time_appointment = time_appointment.strftime("%H:%M:%S")
+    procedure_number = data.get("procedure_number")
+    address = data.get("address")
+    duration = data.get("duration")
+    price_total = data.get("price_total")
+    act, salon,price, place_out = await translate_text(language_code,[f"act_1_{procedure_number}","salon",f"price_act_1_{procedure_number}", "place"])
+
+    first_name = call.message.chat.first_name
+    last_name = call.message.chat.last_name
+    summary = f"{first_name} {last_name}: +{phone}"
+    colorId = 1
+    if not price_total:
+        price = int(price)
+
+        if address == 'salon':
+            price_total = int(price)
+            colorId = 2
+            address = salon
+        else:
+            place_out = only_numbers(place_out)
+            price_total = int(price) + int(place_out)
+    description = f"{act}, {price_total}"
+    event = create_event_body2(date=day, start_time=time_appointment, duration=duration, summary=summary, description=description ,location=address, colorId=colorId)
+    calendar.add_event(calendar_id=calendar_id, body=event)
+
 async def confirm_appointment(call, state):
     """send message that will be call by phone and save the approved the appointment"""
-    # work with SQL
+
     # take phone number
     chat_id = call.message.chat.id
     phone = cursor.execute("SELECT phone_number FROM users WHERE id = ?;", (chat_id,))
@@ -917,6 +950,8 @@ async def confirm_appointment(call, state):
         (phone, chat_id, chat_id),
     )
     conn.commit()
+    #create the event in Google calendar
+    await create_en_event(call, state, phone)
 
     # sand messages
     await thanks(call)
@@ -1072,16 +1107,18 @@ async def are_you_sure(call, state):
 
 
 async def change_date_appointment(call, state):
+    '''Change date appointment'''
+    #takes datas to find the appointment
     procedure, date, time, duration, address, total_priсe, registration_time, procedure_number, kind = nearest_appointment(call)
     chat_id = call.message.chat.id
-
+    # change status of appointment
     now=call.message.date
     cursor.execute(
         "UPDATE appointments SET status=3, changed=? WHERE date=? AND time=? AND chat_id=?",
         (now, date, time, chat_id),
     )
     conn.commit()
-
+    # asking to input a new date
     await ask_for_data(call, state)
     await ST.Booking.SEL_Date.set()
 
@@ -1101,6 +1138,7 @@ async def cancel_appointment(call, state):
     procedure, date, time, duration, address, price = nearest_appointment(call)
     chat_id = call.message.chat.id
     now=call.message.date
+    # change status of appointment
     cursor.execute(
         "UPDATE appointments SET status=0, changed=? WHERE date=? AND time=? AND chat_id=?",
         (now, date, time, chat_id),
