@@ -3,7 +3,7 @@
         "language_name" : "English.",
         "greeting1": "Your default language is: ",
         "greeting2": "Do you want to keep it?",
-        "language_is_chosen": "Language is chosen",
+        "language_is_chosen": "Language is chosen. We recommend you to make a registration just pres /reg",
         "name_agree": "Do you want registrate as {first_name} {last_name}",
         "yes": "Yes",
         "no": "No",

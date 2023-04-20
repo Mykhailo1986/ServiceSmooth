@@ -151,7 +151,7 @@ async def save_language_in_DB(call):
     """Save the selected language"""
     id = int(call.message.chat.id)
     languageCode = call.data.split("=")[1]
-    now = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
+    now=call.message.date
     # check if the user already in base.
     await existanceCheck(id, now)
     # Save the language.
@@ -160,8 +160,9 @@ async def save_language_in_DB(call):
     )
     conn.commit()
     language_is_chosen = await translate_text(languageCode, "language_is_chosen")
+    key=await kb.one_button('/reg')
     await call.message.answer(
-        language_is_chosen
+        language_is_chosen, reply_markup=key
     )  # languagePack back a List si in 1 request I add a [0].
 
 
@@ -437,10 +438,10 @@ def get_date(number):
     """takes a number as an input and returns a date based on whether the number is greater or less than the current date's day"""
     today = datetime.datetime.today()
     if number > today.day:
-        return today.replace(day=number).strftime("%d-%m-%Y")
+        return today.replace(day=number).strftime('%Y-%m-%d')
     else:
         next_month = today.replace(day=28) + datetime.timedelta(days=4)
-        return next_month.replace(day=number).strftime("%d-%m-%Y")
+        return next_month.replace(day=number).strftime('%Y-%m-%d')
 
 
 def get_date_with_month(four_diget):
@@ -455,7 +456,7 @@ def get_date_with_month(four_diget):
         else datetime.datetime.now().year + 1
     )
     date = datetime.date(year=year, month=month, day=day)
-    formatted_date = date.strftime("%d-%m-%Y")
+    formatted_date = date.strftime('%Y-%m-%d')
     return formatted_date
 
 
@@ -531,7 +532,7 @@ async def ask_for_time(message, state):
     if times == []:
         procedure_number = data.get("procedure_number")
         chat_id = int(message.chat.id)
-        now = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
+        now=message.date
         address = data.get("address")
         act, price, day_busy = await translate_text(
             language_code,
@@ -558,7 +559,7 @@ async def ask_for_time(message, state):
         await ST.Booking.SEL_Date.set()
         return False
 
-    formatted_times = [time.strftime("%H:%M") for time in times]
+    formatted_times = [time.strftime('%H:%M') for time in times]
     markup_request = await kb.plural_buttons(formatted_times, 5)
     await message.answer(ask_for_time, reply_markup=markup_request)
     return True
@@ -574,9 +575,9 @@ def busy_time_maker(day):
     )
     rows = cursor.fetchall()
 
-    if datetime.datetime.now().strftime("%d-%m-%Y") == day:
+    if datetime.datetime.now().strftime('%Y-%m-%d') == day:
         busy_end = datetime.datetime.strptime(
-            datetime.datetime.now().strftime("%H:%M"), "%H:%M"
+            datetime.datetime.now().strftime('%H:%M'), '%H:%M'
         ).time()
     else:
         busy_end = working_time["work_start"]
@@ -588,9 +589,9 @@ def busy_time_maker(day):
 
     for i, row in enumerate(rows):
         appointment = {
-            "busy_start": datetime.datetime.strptime(row[0], "%H:%M").time(),
+            "busy_start": datetime.datetime.strptime(row[0], '%H:%M:%S').time(),
             "busy_end": (
-                datetime.datetime.strptime(row[0], "%H:%M")
+                datetime.datetime.strptime(row[0], '%H:%M:%S')
                 + datetime.timedelta(minutes=row[1] + 15)
             ).time(),
         }
@@ -769,7 +770,7 @@ async def approve_appointment(message, state):
     day = data.get("day")
     time_appointment = data.get("time_appointment")
     try:
-        time_appointment = time_appointment.strftime("%H:%M")
+        time_appointment = time_appointment.strftime('%H:%M:%S')
     except AttributeError:
         return False
     procedure_number = data.get("procedure_number")
@@ -826,7 +827,7 @@ async def approve_appointment(message, state):
     takes_time = duration
 
     chat_id = int(message.chat.id)
-    now = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
+    now=message.date
 
     cursor.execute(
         "INSERT INTO appointments (chat_id, date, time, procedure, duration, place, price, registration_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -885,8 +886,8 @@ async def help_message(message, state, lenguage_code):
 def nearest_appointment(obj):
     """takes datta for nearest appointment"""
     message = obj_processor(obj)
-    today = datetime.datetime.now().strftime("%d-%m-%Y")
-    now = datetime.datetime.now().strftime("%H:%M")
+    today = datetime.date.today().strftime('%Y-%m-%d')
+    now = datetime.datetime.now().strftime("%H:%M:%S")
     chat_id = message.chat.id
 
 
@@ -940,7 +941,8 @@ async def looking(language_code, obj, procedure, date, time, duration, address, 
 async def looking_another(call,state):
     '''Looks for another appointments'''
     language_code= await language_code_give(call, state)
-    today = datetime.datetime.now().strftime("%d-%m-%Y")
+    today = datetime.date.today()
+
     chat_id = call.message.chat.id
     rows = cursor.execute(
         "SELECT procedure, date, time, duration, place, price FROM appointments WHERE date>=? AND status=1 AND chat_id=? ORDER BY date, time;",
@@ -1023,8 +1025,7 @@ async def change_date_appointment(call, state):
     procedure, date, time, duration, address, total_priсe = nearest_appointment(call)
     chat_id = call.message.chat.id
 
-    now=call.message.date.strftime("%d-%m-%Y %H:%M")
-    now = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
+    now=call.message.date
     cursor.execute(
         "UPDATE appointments SET status=3, changed=? WHERE date=? AND time=? AND chat_id=?",
         (now, date, time, chat_id),
@@ -1045,7 +1046,7 @@ async def cancel_appointment(call, state):
     """cancel the appointment"""
     procedure, date, time, duration, address, price = nearest_appointment(call)
     chat_id = call.message.chat.id
-    now = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
+    now=call.message.date
     cursor.execute(
         "UPDATE appointments SET status=0, changed=? WHERE date=? AND time=? AND chat_id=?",
         (now, date, time, chat_id),

@@ -20,10 +20,12 @@ dp.middleware.setup(LoggingMiddleware())
 @dp.message_handler(commands=["state"], state="*")
 async def print_current_state(message: types.Message, state: FSMContext):
     current_state = await state.get_state()
+    await message.answer(message.date)
     if current_state is None:
         await message.answer("The current state is not defined.")
     else:
         await message.answer(f"The current state is {current_state}")
+
 
 
 @dp.message_handler(commands=["start"], state="*")
@@ -47,6 +49,7 @@ async def help(message=types.Message, state=FSMContext):
     language_code = await fn.language_code_give(message, state)
     if not language_code:
         await language_start(message)
+        return
     fn.help_message(message, state, language_code)
 
 @dp.message_handler(commands=["our"], state="*")
@@ -61,6 +64,7 @@ async def registration_start(message=types.Message, state=FSMContext):
     language_code = await fn.language_code_give(message, state)
     if not language_code:
         await language_start(message)
+        return
     # Propose to send a contact from user
     await fn.ask_contact(message, language_code)
     # Create a form for input the names or implement it automatically
@@ -84,6 +88,9 @@ async def looking(message=types.Message, state=FSMContext):
     language_code = await fn.language_code_give(message, state)
     if not language_code:
         await language_start(message)
+        return
+
+
     procedure, date, time, duration, address, total_priсe = fn.nearest_appointment(message)
     if await fn.looking(language_code, message,  procedure, date, time, duration, address, total_priсe):
         await ST.ServiseSmoothState.CHOOSE_lOOK.set()
@@ -147,12 +154,14 @@ async def booking(message=types.Message, state=FSMContext):
     language_code = await fn.language_code_give(message, state)
     if not language_code:
         await language_start(message)
+        return
     else:
         await state.update_data(language_code=language_code)
     # checks if User already registered?
     first_name = await fn.first_name_check(message)
     if not first_name:
         await registration_start(message, state)
+        return
 
     else:
         await fn.send_registration_confirmation_message(message)
