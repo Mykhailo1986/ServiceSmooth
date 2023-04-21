@@ -17,7 +17,7 @@ conn = sqlite3.connect(os.getenv("DB"))
 cursor = conn.cursor()
 # from datetime import datetime
 
-working_time = {"work_start": datetime.time(8, 0), "work_end": datetime.time(22, 0)}
+# working_time = {"work_start": datetime.time(8, 0), "work_end": datetime.time(22, 0)}
 rest_days = [datetime.date(2023, 4, 16), datetime.date(2023, 4, 17)]
 
 """FOR MAX procedure search for n=5
@@ -528,7 +528,6 @@ async def ask_for_time(message, state):
 
     takes_time = duration + time_addition
     busy_time = busy_time_maker(day)
-    # print(f"busy_time {busy_time}")
     times = give_possible_time(busy_time, duration)
     # if in this day didnt fit any more appointments this size
     if times == []:
@@ -570,12 +569,10 @@ def busy_time_maker(day):
     """Takes the appointments from Google calendar and create the dictionary with it for day"""
     busy_time = []
     # ask from google calendar events
-    print(day)
-    print(type(day))
+
     events = calendar.get_events(calendar_id=calendar_id, date=day)
-    print(f"events : {len(events)}")
-    # print(f"events : {events}")
-    # from events makes an busy list
+
+    # from events makes the busy list
     for event in events:
         appointment = []
         start_time = event['start']['dateTime'][11:19]
@@ -721,8 +718,7 @@ def give_possible_time(busy_time, duration):
 
         if not end_datetime.time() in times:
             times.append(end_datetime.time())
-    # print(f"gaps{gaps}")
-    # print(f"times{times}")
+
     return times
 
 
@@ -790,6 +786,7 @@ async def approve_appointment(message, state):
     # load datas from state
     data = await state.get_data()
     day = data.get("day")
+
     time_appointment = data.get("time_appointment")
     try:
         time_appointment = time_appointment.strftime('%H:%M:%S')
@@ -911,6 +908,7 @@ async def create_en_event(call, state, phone):
             place_out = only_numbers(place_out)
             price_total = int(price) + int(place_out)
     description = f"{act}, {price_total}"
+
     event = create_event_body2(date=day, start_time=time_appointment, duration=duration, summary=summary, description=description ,location=address, colorId=colorId)
     calendar.add_event(calendar_id=calendar_id, body=event)
 

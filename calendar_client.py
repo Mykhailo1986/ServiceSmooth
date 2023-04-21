@@ -121,6 +121,8 @@ def create_event_body(date, start_time, duration, summary, description ,location
 
 calendar = GoogleCalendar()
 
+
+
 #
 # # pprint.pprint(obj.get_calendar_list())
 # procedure, name, place, phone, date, start_time, end_time="go ", "Mike", "home", "4086693","2023-04-20","09:00:00", "10:00:00"
@@ -157,20 +159,21 @@ def create_event_body2(date, start_time, duration, summary, description ,locatio
 
     end_time = datetime.datetime.strptime(start_time, "%H:%M:%S") + datetime.timedelta(minutes=duration)
     formatted_time = end_time.strftime("%H:%M:%S")
-    end_date_time=f'{date}T{formatted_time}-03:00'
-
+    end_date_time=f'{date}T{formatted_time}'
+    print(date)
     event = {
         'summary': summary,
         'location': location,
         'description': description,
         'start': {
-            'dateTime': f'{date}T{start_time}-03:00', 'timeZone': 'Europe/Kiev'
-            # 'dateTime': '2023-04-20T09:00:00-03:00',
+            'dateTime': f'{date}T{start_time}',
+            'timeZone': 'Europe/Kiev',
         },
         'end': {
             'dateTime': end_date_time,
-            # 'dateTime': '2023-04-20T09:00:00-03:00',
-        },
+            'timeZone': 'Europe/Kiev',
+    },
+
         'colorId' : colorId,
         # 'id' : '',
 
@@ -182,47 +185,12 @@ def create_event_body2(date, start_time, duration, summary, description ,locatio
         #     ],
         #  },
     }
+    print( event)
     return event
 #
 # date, start_time,duration = "2023-04-20","09:00:00", 20
 # event=create_event_body2(date,start_time,duration)
 # calendar.add_event(calendar_id=calendar_id,body=event)
-
-working_time = {"work_start": datetime.time(8, 0), "work_end": datetime.time(22, 0)}
-def busy_time_maker(day):
-    """Takes the appointments from Google calendar and create the dictionary with it for day"""
-    busy_time = {}
-    # ask from google calendar events
-    events = calendar.get_events(calendar_id=calendar_id, date=day)
-    # create start if the day is today
-    if datetime.datetime.now().strftime('%Y-%m-%d') == day:
-        busy_end = datetime.datetime.strptime(
-            datetime.datetime.now().strftime('%H:%M'), '%H:%M'
-        ).time()
-    else:
-        busy_end = working_time["work_start"]
-
-    # create a busy time dictionary
-    busy_time["morning"] = {
-        "busy_start": datetime.time.min,
-        "busy_end": busy_end,
-    }
-
-    for i, event in enumerate(events):
-        start_time = event['start']['dateTime'][11:19]
-        end_time = event['end']['dateTime'][11:19]
-        appointment = {
-            "busy_start": datetime.datetime.strptime(start_time, '%H:%M:%S').time(),
-            "busy_end": datetime.datetime.strptime(end_time, '%H:%M:%S').time()
-        }
-        busy_time[f"Appointment{i}"] = appointment
-
-    busy_time["night"] = {
-            "busy_start": working_time["work_end"],
-            "busy_end": datetime.time.max,
-        }
-
-    return busy_time
 
 # print(busy_time_maker("2023-04-21"))
 # day="2023-04-22"
@@ -231,3 +199,44 @@ def busy_time_maker(day):
 # # events=calendar.get_all_events(date=day)
 # for event in events:
 #     print(event)
+event = {
+  'summary': 'Google I/O 2015',
+  'location': '800 Howard St., San Francisco, CA 94103',
+  'description': 'A chance to hear more about Google\'s developer products.',
+  'start': {
+    'dateTime': '2023-04-21T09:00:00-03:00',
+    'timeZone': 'Europe/Kiev',
+  },
+  'end': {
+    'dateTime': '2023-04-21T11:00:00-03:00',
+    'timeZone': 'Europe/Kiev',
+  },
+  # 'recurrence': [
+  #   'RRULE:FREQ=DAILY;COUNT=2'
+  # ],
+
+  # 'reminders': {
+  #   'useDefault': False,
+  #   'overrides': [
+  #     {'method': 'email', 'minutes': 24 * 60},
+  #     {'method': 'popup', 'minutes': 10},
+  #   ],
+  # },
+}
+
+event2={
+           'summary': 'Женя Кучер: +380985397340',
+           'location': 'Salon',
+           'description': 'Anticellulite masage, 36',
+        'start': {
+            'dateTime': '2023-04-21T09:00:00-03:00',
+            'timeZone': 'Europe/Kiev',
+          },
+          'end': {
+            'dateTime': '2023-04-21T11:00:00-03:00',
+            'timeZone': 'Europe/Kiev',
+          },
+        'colorId': 2
+}
+# calendar.add_event(calendar_id=calendar_id,body=event2)
+# calendar.add_event(calendar_id=calendar_id,body={'summary': 'Женя Кучер: +380985397340', 'location': 'Salon', 'description': 'Anticellulite masage, 36', 'start': {'dateTime': '2023-04-21T18:00:00-03:00', 'timeZone': 'Europe/Kiev',}, 'end': {'dateTime': '2023-04-21T19:00:00-03:00', 'timeZone': 'Europe/Kiev',}, 'colorId': 2})
