@@ -75,6 +75,15 @@ class GoogleCalendar:
         events = events_result.get('items', [])
         return events
 
+    def _get_all_events(self, date):
+        '''get all events from all calendars'''
+        calendar_list = self.service.calendarList().list().execute()
+        all_events = []
+        for calendar in calendar_list['items']:
+            events = self.get_events(calendar['id'], date)
+            all_events.extend(events)
+        return all_events
+
 
 
 
@@ -155,7 +164,7 @@ def create_event_body2(date, start_time, duration, summary, description ,locatio
         'location': location,
         'description': description,
         'start': {
-            'dateTime': f'{date}T{start_time}-03:00',
+            'dateTime': f'{date}T{start_time}-03:00', 'timeZone': 'Europe/Kiev'
             # 'dateTime': '2023-04-20T09:00:00-03:00',
         },
         'end': {
@@ -215,4 +224,10 @@ def busy_time_maker(day):
 
     return busy_time
 
-print(busy_time_maker("2023-04-21"))
+# print(busy_time_maker("2023-04-21"))
+# day="2023-04-22"
+# events = calendar.get_events(calendar_id=calendar_id, date=day)
+# # print (events)
+# # events=calendar.get_all_events(date=day)
+# for event in events:
+#     print(event)

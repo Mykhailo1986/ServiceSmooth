@@ -528,6 +528,7 @@ async def ask_for_time(message, state):
 
     takes_time = duration + time_addition
     busy_time = busy_time_maker(day)
+    # print(f"busy_time {busy_time}")
     times = give_possible_time(busy_time, duration)
     # if in this day didnt fit any more appointments this size
     if times == []:
@@ -567,81 +568,40 @@ async def ask_for_time(message, state):
 
 def busy_time_maker(day):
     """Takes the appointments from Google calendar and create the dictionary with it for day"""
-    busy_time = {}
+    busy_time = []
     # ask from google calendar events
+    print(day)
+    print(type(day))
     events = calendar.get_events(calendar_id=calendar_id, date=day)
-    # create start if the day is today
-    if datetime.datetime.now().strftime('%Y-%m-%d') == day:
-        busy_end = datetime.datetime.strptime(
-            datetime.datetime.now().strftime('%H:%M'), '%H:%M'
-        ).time()
-    else:
-        busy_end = working_time["work_start"]
-
-    # create a busy time dictionary
-    busy_time["morning"] = {
-        "busy_start": datetime.time.min,
-        "busy_end": busy_end,
-    }
-
-    for i, event in enumerate(events):
+    print(f"events : {len(events)}")
+    # print(f"events : {events}")
+    # from events makes an busy list
+    for event in events:
+        appointment = []
         start_time = event['start']['dateTime'][11:19]
         end_time = event['end']['dateTime'][11:19]
-        appointment = {
-            "busy_start": datetime.datetime.strptime(start_time, '%H:%M:%S').time(),
-            "busy_end": datetime.datetime.strptime(end_time, '%H:%M:%S').time()
-        }
-        busy_time[f"Appointment{i}"] = appointment
+        appointment.append(datetime.datetime.strptime(start_time, '%H:%M:%S').time())
+        appointment.append(datetime.datetime.strptime(end_time, '%H:%M:%S').time())
+        busy_time.append(appointment)
+    # sort it
+    busy_time = sorted(busy_time, key=lambda x: x[0])
 
-    busy_time["night"] = {
-            "busy_start": working_time["work_end"],
-            "busy_end": datetime.time.max,
-        }
+    # create start if the day is today
+    if datetime.datetime.now().strftime('%Y-%m-%d') == day:
+
+        now = datetime.datetime.strptime(
+            datetime.datetime.now().strftime('%H:%M'), '%H:%M'
+        ).time()
+
+        #filtering all what is less than Now
+        busy_time = list(filter(lambda x: x[1] >= now, busy_time))
+        for i in range(len(busy_time)):
+            if busy_time[i][0] <= now <=busy_time[i][1]:
+                break
+            else:
+                busy_time.insert(0,[datetime.time.min,now])
 
     return busy_time
-
-# OLD VERSION BEFORE GOOGLE CALENDAR
-
-# def busy_time_maker(day):
-
-#     """Takes the appointments from DB and create the dictionary with it for day"""
-#     busy_time = {}
-#
-#     rows = cursor.execute(
-#         "SELECT time, duration FROM appointments WHERE date=? AND status=1 ORDER BY time;",
-#         (day,),
-#     )
-#     rows = cursor.fetchall()
-#
-#     if datetime.datetime.now().strftime('%Y-%m-%d') == day:
-#         busy_end = datetime.datetime.strptime(
-#             datetime.datetime.now().strftime('%H:%M'), '%H:%M'
-#         ).time()
-#     else:
-#         busy_end = working_time["work_start"]
-#
-#     busy_time["morning"] = {
-#         "busy_start": datetime.time.min,
-#         "busy_end": busy_end,
-#     }
-#
-#     for i, row in enumerate(rows):
-#         appointment = {
-#             "busy_start": datetime.datetime.strptime(row[0], '%H:%M:%S').time(),
-#             "busy_end": (
-#                 datetime.datetime.strptime(row[0], '%H:%M:%S')
-#                 + datetime.timedelta(minutes=row[1] + 15)
-#             ).time(),
-#         }
-#         busy_time[f"Appointment{i}"] = appointment
-#
-#
-#     busy_time["night"] = {
-#         "busy_start": working_time["work_end"],
-#         "busy_end": datetime.time.max,
-#     }
-#
-#     return busy_time
 
 
 def time_formatter(text):
@@ -672,19 +632,24 @@ def time_formatter(text):
     return time_format
 
 
-def free_time_between_appointments(busy_time, start):
+def free_time_between_appointments(busy_time):
     """Create the gap between of one appointment and begin of other"""
 
-    # Find the gap begin
+    # Find the gap begin from the most little end
     gap_start = datetime.time.max
-    for key in busy_time.keys():
-        busy_end = busy_time[key]["busy_end"]
-        if busy_end < gap_start and busy_end >= start:
+
+    for appointment in busy_time:
+        busy_end = appointment[1]
+        if busy_end <= gap_start:
             gap_start = busy_end
+
+
+
     # Find the gap and
     gap_end = datetime.time.max
-    for key in busy_time.keys():
-        busy_start = busy_time[key]["busy_start"]
+
+    for appointment in busy_time:
+        busy_start = appointment[0]
         if busy_start >= gap_start and busy_start < gap_end:
             gap_end = busy_start
 
@@ -706,10 +671,16 @@ def available_time_slots(busy_time, duration):
     """Add function to generate available time slots based on busy times and required duration."""
     gaps = []
     # start = datetime.time.min
-    start = busy_time["morning"]["busy_end"]
+
+
 
     while True:
-        gap = free_time_between_appointments(busy_time, start)
+        gap = free_time_between_appointments(busy_time)
+        for i in range(len(busy_time)):
+            if busy_time[i][1] == gap[0]:
+                del busy_time[i]
+                break
+
         if gap_duration_compare(gap, duration):
             gaps.append(gap)
         # Move to the next gap
@@ -750,12 +721,14 @@ def give_possible_time(busy_time, duration):
 
         if not end_datetime.time() in times:
             times.append(end_datetime.time())
-
+    # print(f"gaps{gaps}")
+    # print(f"times{times}")
     return times
 
 
 def check_time_slot_fit(start_time, duration, gaps):
     """Check if time is fit in gap"""
+
     end_time = datetime.datetime.combine(
         datetime.date.today(), start_time
     ) + datetime.timedelta(minutes=duration)
