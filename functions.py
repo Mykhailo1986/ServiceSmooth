@@ -592,11 +592,9 @@ def busy_time_maker(day):
 
         #filtering all what is less than Now
         busy_time = list(filter(lambda x: x[1] >= now, busy_time))
-        for i in range(len(busy_time)):
-            if busy_time[i][0] <= now <=busy_time[i][1]:
-                break
-            else:
-                busy_time.insert(0,[datetime.time.min,now])
+        # if its empty add not in the middle of appointment
+        if not busy_time or not busy_time[0][0] <= now <= busy_time[0][1]:
+            busy_time.insert(0, [datetime.time.min, now])
 
     return busy_time
 
