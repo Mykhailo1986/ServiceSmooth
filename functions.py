@@ -573,7 +573,7 @@ def busy_time_maker(day):
     # create start if the day is today
     if datetime.datetime.now().strftime('%Y-%m-%d') == day:
         busy_end = datetime.datetime.strptime(
-            datetime.datetime.now().strftime('%H:%M:%S'), '%H:%M:%S'
+            datetime.datetime.now().strftime('%H:%M'), '%H:%M'
         ).time()
     else:
         busy_end = working_time["work_start"]
@@ -762,7 +762,7 @@ def check_time_slot_fit(start_time, duration, gaps):
 
     start_time = datetime.datetime.combine(
         datetime.date.today(), start_time
-    ) + datetime.timedelta(minutes=2)
+    )# + datetime.timedelta(minutes=2)
 
     for gap in gaps:
         gap_start = datetime.datetime.combine(datetime.date.today(), gap[0])
@@ -797,14 +797,19 @@ async def time_selector(message, state):
     duration += time_addition
     busy_time = busy_time_maker(day)
     gaps = available_time_slots(busy_time, duration)
+
     # check if the time for fit in gap
     if not check_time_slot_fit(time_appointment, duration, gaps):
         await message.answer(time_busy)
-        await ask_for_time(message, state)
-        time_appointment = None
+        # await ask_for_time(message, state)
+
+        return False
+        # time_appointment = None
+
 
     # save time format in state
     await state.update_data(time_appointment=time_appointment)
+    return True
 
 
 async def approve_appointment(message, state):

@@ -258,9 +258,11 @@ async def take_day_from_user(message: types.Message, state=FSMContext):
 @dp.message_handler(state=ST.Booking.SEL_Time)
 async def take_time_from_user(message: types.Message, state=FSMContext):
     """Take and save in state time of appointment from user, send a confirmation"""
-    await fn.time_selector(message, state)
-    await fn.approve_appointment(message, state)
-    await ST.Booking.END_BOOK.set()
+    if await fn.time_selector(message, state):
+        await fn.approve_appointment(message, state)
+        await ST.Booking.END_BOOK.set()
+    else:
+        await fn.ask_for_time(message, state)
 
 
 @dp.callback_query_handler(lambda c: c.data == "book again", state=ST.Booking.END_BOOK)

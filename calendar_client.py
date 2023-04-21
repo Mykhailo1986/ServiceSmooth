@@ -178,3 +178,41 @@ def create_event_body2(date, start_time, duration, summary, description ,locatio
 # date, start_time,duration = "2023-04-20","09:00:00", 20
 # event=create_event_body2(date,start_time,duration)
 # calendar.add_event(calendar_id=calendar_id,body=event)
+
+working_time = {"work_start": datetime.time(8, 0), "work_end": datetime.time(22, 0)}
+def busy_time_maker(day):
+    """Takes the appointments from Google calendar and create the dictionary with it for day"""
+    busy_time = {}
+    # ask from google calendar events
+    events = calendar.get_events(calendar_id=calendar_id, date=day)
+    # create start if the day is today
+    if datetime.datetime.now().strftime('%Y-%m-%d') == day:
+        busy_end = datetime.datetime.strptime(
+            datetime.datetime.now().strftime('%H:%M'), '%H:%M'
+        ).time()
+    else:
+        busy_end = working_time["work_start"]
+
+    # create a busy time dictionary
+    busy_time["morning"] = {
+        "busy_start": datetime.time.min,
+        "busy_end": busy_end,
+    }
+
+    for i, event in enumerate(events):
+        start_time = event['start']['dateTime'][11:19]
+        end_time = event['end']['dateTime'][11:19]
+        appointment = {
+            "busy_start": datetime.datetime.strptime(start_time, '%H:%M:%S').time(),
+            "busy_end": datetime.datetime.strptime(end_time, '%H:%M:%S').time()
+        }
+        busy_time[f"Appointment{i}"] = appointment
+
+    busy_time["night"] = {
+            "busy_start": working_time["work_end"],
+            "busy_end": datetime.time.max,
+        }
+
+    return busy_time
+
+print(busy_time_maker("2023-04-21"))
