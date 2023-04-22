@@ -26,6 +26,9 @@ async def print_current_state(message: types.Message, state: FSMContext):
     else:
         await message.answer(f"The current state is {current_state}")
 
+    await fn.test(
+        message,
+    )
 
 
 @dp.message_handler(commands=["start"], state="*")
@@ -52,10 +55,12 @@ async def help(message=types.Message, state=FSMContext):
         return
     fn.help_message(message, state, language_code)
 
+
 @dp.message_handler(commands=["our"], state="*")
 async def help(message=types.Message, state=FSMContext):
     """send message about saloon"""
     await fn.our_contact(bot, message, state)
+
 
 @dp.message_handler(commands=["reg"], state="*")
 async def registration_start(message=types.Message, state=FSMContext):
@@ -90,10 +95,22 @@ async def looking(message=types.Message, state=FSMContext):
         await language_start(message)
         return
 
-
-    procedure, date, time, duration, address, total_priсe = fn.nearest_appointment(message)
-    if await fn.looking(language_code, message,  procedure, date, time, duration, address, total_priсe):
+    (
+        procedure,
+        date,
+        time,
+        duration,
+        address,
+        total_priсe,
+        registration_time,
+        procedure_number,
+        kind,
+    ) = fn.nearest_appointment(message)
+    if await fn.looking(
+        language_code, message, procedure, date, time, duration, address, total_priсe
+    ):
         await ST.ServiseSmoothState.CHOOSE_lOOK.set()
+
 
 @dp.callback_query_handler(
     lambda c: c.data == "look another", state=ST.ServiseSmoothState.CHOOSE_lOOK
@@ -101,11 +118,13 @@ async def looking(message=types.Message, state=FSMContext):
 async def look_another(call, state=FSMContext):
     await fn.looking_another(call, state)
 
+
 @dp.callback_query_handler(
     lambda c: c.data == "chen_del", state=ST.ServiseSmoothState.CHOOSE_lOOK
 )
 async def change_delete(call, state=FSMContext):
     await fn.change_delete(call, state)
+
 
 @dp.callback_query_handler(
     lambda c: c.data in {"change", "cancel"}, state=ST.ServiseSmoothState.CHOOSE_lOOK
@@ -242,7 +261,9 @@ async def extract_location_from_contact(message: types.Message, state=FSMContext
 async def take_address_from_message(message: types.Message, state=FSMContext):
     """Take and save in state address from user inputs"""
     address = message.text
-    await state.update_data(address=address,)
+    await state.update_data(
+        address=address,
+    )
     await fn.ask_for_data(message, state)
     await ST.Booking.SEL_Date.set()
 

@@ -8,7 +8,7 @@ import keyboards as kb
 import sqlite3
 import datetime
 import states as ST
-from calendar_client import calendar,calendar_id,create_event_body2
+from calendar_client import calendar, calendar_id, create_event_body
 
 
 load_dotenv()
@@ -152,7 +152,7 @@ async def save_language_in_DB(call):
     """Save the selected language"""
     id = int(call.message.chat.id)
     languageCode = call.data.split("=")[1]
-    now=call.message.date
+    now = call.message.date
     # check if the user already in base.
     await existanceCheck(id, now)
     # Save the language.
@@ -161,7 +161,7 @@ async def save_language_in_DB(call):
     )
     conn.commit()
     language_is_chosen = await translate_text(languageCode, "language_is_chosen")
-    key=await kb.one_button('/reg')
+    key = await kb.one_button("/reg")
     await call.message.answer(
         language_is_chosen, reply_markup=key
     )  # languagePack back a List si in 1 request I add a [0].
@@ -439,10 +439,10 @@ def get_date(number):
     """takes a number as an input and returns a date based on whether the number is greater or less than the current date's day"""
     today = datetime.datetime.today()
     if number > today.day:
-        return today.replace(day=number).strftime('%Y-%m-%d')
+        return today.replace(day=number).strftime("%Y-%m-%d")
     else:
         next_month = today.replace(day=28) + datetime.timedelta(days=4)
-        return next_month.replace(day=number).strftime('%Y-%m-%d')
+        return next_month.replace(day=number).strftime("%Y-%m-%d")
 
 
 def get_date_with_month(four_diget):
@@ -457,7 +457,7 @@ def get_date_with_month(four_diget):
         else datetime.datetime.now().year + 1
     )
     date = datetime.date(year=year, month=month, day=day)
-    formatted_date = date.strftime('%Y-%m-%d')
+    formatted_date = date.strftime("%Y-%m-%d")
     return formatted_date
 
 
@@ -523,8 +523,8 @@ async def ask_for_time(message, state):
     day = data.get("day")
     duration = data.get("duration")
     time_addition = 30
-    if data.get("address")=="salon":
-        time_addition=0
+    if data.get("address") == "salon":
+        time_addition = 0
 
     takes_time = duration + time_addition
     busy_time = busy_time_maker(day)
@@ -533,7 +533,7 @@ async def ask_for_time(message, state):
     if times == []:
         procedure_number = data.get("procedure_number")
         chat_id = int(message.chat.id)
-        now=message.date
+        now = message.date
         address = data.get("address")
         act, price, day_busy = await translate_text(
             language_code,
@@ -544,7 +544,7 @@ async def ask_for_time(message, state):
             ],
         )
         if not price:
-            price=data.get("total_priсe")
+            price = data.get("total_priсe")
         query = """
             INSERT INTO appointments
             (chat_id, date, procedure, duration, place, price, registration_time, phone , status)
@@ -560,10 +560,11 @@ async def ask_for_time(message, state):
         await ST.Booking.SEL_Date.set()
         return False
 
-    formatted_times = [time.strftime('%H:%M') for time in times]
+    formatted_times = [time.strftime("%H:%M") for time in times]
     markup_request = await kb.plural_buttons(formatted_times, 5)
     await message.answer(ask_for_time, reply_markup=markup_request)
     return True
+
 
 def busy_time_maker(day):
     """Takes the appointments from Google calendar and create the dictionary with it for day"""
@@ -575,22 +576,23 @@ def busy_time_maker(day):
     # from events makes the busy list
     for event in events:
         appointment = []
-        start_time = event['start']['dateTime'][11:19]
-        end_time = event['end']['dateTime'][11:19]
-        appointment.append(datetime.datetime.strptime(start_time, '%H:%M:%S').time())
-        appointment.append(datetime.datetime.strptime(end_time, '%H:%M:%S').time())
-        busy_time.append(appointment)
+        start_time = event["start"]["dateTime"][11:19]
+        end_time = event["end"]["dateTime"][11:19]
+        appointment.append(datetime.datetime.strptime(start_time, "%H:%M:%S").time())
+        appointment.append(datetime.datetime.strptime(end_time, "%H:%M:%S").time())
+        if start_time != end_time:
+            busy_time.append(appointment)
     # sort it
     busy_time = sorted(busy_time, key=lambda x: x[0])
 
     # create start if the day is today
-    if datetime.datetime.now().strftime('%Y-%m-%d') == day:
+    if datetime.datetime.now().strftime("%Y-%m-%d") == day:
 
         now = datetime.datetime.strptime(
-            datetime.datetime.now().strftime('%H:%M'), '%H:%M'
+            datetime.datetime.now().strftime("%H:%M"), "%H:%M"
         ).time()
 
-        #filtering all what is less than Now
+        # filtering all what is less than Now
         busy_time = list(filter(lambda x: x[1] >= now, busy_time))
         # if its empty add not in the middle of appointment
         if not busy_time or not busy_time[0][0] <= now <= busy_time[0][1]:
@@ -638,8 +640,6 @@ def free_time_between_appointments(busy_time):
         if busy_end <= gap_start:
             gap_start = busy_end
 
-
-
     # Find the gap and
     gap_end = datetime.time.max
 
@@ -666,8 +666,6 @@ def available_time_slots(busy_time, duration):
     """Add function to generate available time slots based on busy times and required duration."""
     gaps = []
     # start = datetime.time.min
-
-
 
     while True:
         gap = free_time_between_appointments(busy_time)
@@ -710,7 +708,7 @@ def give_possible_time(busy_time, duration):
         )
         # add other times with exact hours
         for hour in hours:
-            if end_datetime.time() > hour > current_time.time() :
+            if end_datetime.time() > hour > current_time.time():
                 if not hour in times:
                     times.append(hour)
 
@@ -729,7 +727,7 @@ def check_time_slot_fit(start_time, duration, gaps):
 
     start_time = datetime.datetime.combine(
         datetime.date.today(), start_time
-    )# + datetime.timedelta(minutes=2)
+    )  # + datetime.timedelta(minutes=2)
 
     for gap in gaps:
         gap_start = datetime.datetime.combine(datetime.date.today(), gap[0])
@@ -745,7 +743,9 @@ async def time_selector(message, state):
     """hear and change the recived time in correct format save it  and ask for time"""
     # Import message text
     language_code = await language_code_give(message, state)
-    incorrect_time, time_busy = await translate_text(language_code, ["incorrect_time","time_busy"])
+    incorrect_time, time_busy = await translate_text(
+        language_code, ["incorrect_time", "time_busy"]
+    )
     # change Time format
     time_appointment = time_formatter(message.text)
 
@@ -773,7 +773,6 @@ async def time_selector(message, state):
         return False
         # time_appointment = None
 
-
     # save time format in state
     await state.update_data(time_appointment=time_appointment)
     return True
@@ -787,12 +786,11 @@ async def approve_appointment(message, state):
 
     time_appointment = data.get("time_appointment")
     try:
-        time_appointment = time_appointment.strftime('%H:%M:%S')
+        time_appointment = time_appointment.strftime("%H:%M:%S")
     except AttributeError:
         return False
     procedure_number = data.get("procedure_number")
     address = data.get("address")
-
 
     specialist = data.get("specialist")
     kind = data.get("kind")
@@ -800,8 +798,6 @@ async def approve_appointment(message, state):
     duration = data.get("duration")
     price_total = data.get("price_total")
     procedure_number = data.get("procedure_number")
-
-
 
     # Import message text
     language_code = await language_code_give(message, state)
@@ -833,7 +829,7 @@ async def approve_appointment(message, state):
     if not price_total:
         price = only_numbers(price)
 
-        if address == 'salon':
+        if address == "salon":
             price_total = int(price)
         else:
             place_out = only_numbers(place_out)
@@ -845,7 +841,7 @@ async def approve_appointment(message, state):
     takes_time = duration
 
     chat_id = int(message.chat.id)
-    now=message.date
+    now = message.date
 
     cursor.execute(
         "INSERT INTO appointments (chat_id, date, time, procedure, duration, place, price, registration_time, procedure_number, kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -868,16 +864,16 @@ async def approve_appointment(message, state):
     approve_appointment, keyboard = await kb.two_InlineKeyboardButton(
         language_code, "approve_appointment", "yes", "change", "confirm", "book again"
     )
-    if address=="salon":
-        address=salon_location
+    if address == "salon":
+        address = salon_location
     await message.answer(
         f"{approve_appointment}{act}\n{day} {time_appointment}\n{loc}{address}\n{price_total}{currency}\n{str(takes_time)}",
         reply_markup=keyboard,
     )
 
 
-async def create_en_event(call, state, phone):
-    '''Create the event with appointment'''
+async def create_en_event(call, state, summary):
+    """Create the event with appointment"""
     # assign language code
     language_code = "en"
     # load datas from state
@@ -889,16 +885,24 @@ async def create_en_event(call, state, phone):
     address = data.get("address")
     duration = data.get("duration")
     price_total = data.get("price_total")
-    act, salon,price, place_out = await translate_text(language_code,[f"act_1_{procedure_number}","salon",f"price_act_1_{procedure_number}", "place"])
+    act, salon, price, place_out = await translate_text(
+        language_code,
+        [
+            f"act_1_{procedure_number}",
+            "salon",
+            f"price_act_1_{procedure_number}",
+            "place",
+        ],
+    )
 
     first_name = call.message.chat.first_name
     last_name = call.message.chat.last_name
-    summary = f"{first_name} {last_name}: +{phone}"
+
     colorId = 1
     if not price_total:
         price = int(price)
 
-        if address == 'salon':
+        if address == "salon":
             price_total = int(price)
             colorId = 2
             address = salon
@@ -907,25 +911,56 @@ async def create_en_event(call, state, phone):
             price_total = int(price) + int(place_out)
     description = f"{act}, {price_total}"
 
-    event = create_event_body2(date=day, start_time=time_appointment, duration=duration, summary=summary, description=description ,location=address, colorId=colorId)
+    event = create_event_body(
+        date=day,
+        start_time=time_appointment,
+        duration=duration,
+        summary=summary,
+        description=description,
+        location=address,
+        colorId=colorId,
+    )
     calendar.add_event(calendar_id=calendar_id, body=event)
+
+
+async def test(message):
+    # take phone and name number
+    chat_id = message.chat.id
+    row = cursor.execute(
+        "SELECT phone_number, first_name, last_name FROM users WHERE id = ?;",
+        (chat_id,),
+    )
+    row = cursor.fetchone()
+    phone = row[0]
+    first_name = row[1]
+    last_name = row[2]
+    summary = f"{first_name} {last_name}: +{phone}"
+    await message.answer(summary)
+
 
 async def confirm_appointment(call, state):
     """send message that will be call by phone and save the approved the appointment"""
 
-    # take phone number
+    # take phone and name number
     chat_id = call.message.chat.id
-    phone = cursor.execute("SELECT phone_number FROM users WHERE id = ?;", (chat_id,))
-    phone = cursor.fetchone()
-    phone = phone[0]
+    row = cursor.execute(
+        "SELECT phone_number, first_name, last_name FROM users WHERE id = ?;",
+        (chat_id,),
+    )
+    row = cursor.fetchone()
+    phone = row[0]
+    first_name = row[1]
+    last_name = row[2]
+    summary = f"{first_name} {last_name}: +{phone}"
+
+    await create_en_event(call, state, summary)
     # input confirm and  phone number in DB
     cursor.execute(
         "UPDATE appointments SET phone=?, status=1 WHERE id = (SELECT id FROM appointments WHERE registration_time = (SELECT MAX(registration_time) FROM appointments WHERE chat_id = ?) AND chat_id = ?);",
         (phone, chat_id, chat_id),
     )
     conn.commit()
-    #create the event in Google calendar
-    await create_en_event(call, state, phone)
+    # create the event in Google calendar
 
     # sand messages
     await thanks(call)
@@ -939,13 +974,13 @@ async def help_message(message, state, language_code):
     help_message = await translate_text(language_code, "help_message")
     await message.answer(help_message)
 
+
 def nearest_appointment(obj):
     """takes datta for nearest appointment"""
     message = obj_processor(obj)
-    today = datetime.date.today().strftime('%Y-%m-%d')
+    today = datetime.date.today().strftime("%Y-%m-%d")
     now = datetime.datetime.now().strftime("%H:%M:%S")
     chat_id = message.chat.id
-
 
     row = cursor.execute(
         "SELECT procedure, MIN(date), time, duration, place, price, registration_time, procedure_number, kind FROM appointments WHERE date>=? AND status=1 AND chat_id=? ORDER BY time;",
@@ -956,7 +991,17 @@ def nearest_appointment(obj):
         return False
 
     else:
-        procedure, date, time, duration, address, total_priсe, registration_time, procedure_number, kind = (
+        (
+            procedure,
+            date,
+            time,
+            duration,
+            address,
+            total_priсe,
+            registration_time,
+            procedure_number,
+            kind,
+        ) = (
             row[0],
             row[1],
             row[2],
@@ -967,11 +1012,22 @@ def nearest_appointment(obj):
             row[7],
             row[8],
         )
-        return procedure, date, time, duration, address, total_priсe, registration_time, procedure_number, kind
+        return (
+            procedure,
+            date,
+            time,
+            duration,
+            address,
+            total_priсe,
+            registration_time,
+            procedure_number,
+            kind,
+        )
 
 
-
-async def looking(language_code, obj, procedure, date, time, duration, address, total_priсe):
+async def looking(
+    language_code, obj, procedure, date, time, duration, address, total_priсe
+):
     """Send message with your appointment"""
     message = obj_processor(obj)
     if not procedure:
@@ -979,13 +1035,18 @@ async def looking(language_code, obj, procedure, date, time, duration, address, 
         await message.answer(none)
         return False
     appointment, keyboard = await kb.two_InlineKeyboardButton(
-        language_code, "your_appointment", "cng_app", "look_aps", "chen_del", "look another"
+        language_code,
+        "your_appointment",
+        "cng_app",
+        "look_aps",
+        "chen_del",
+        "look another",
     )
     if address == "salon":
         address = await translate_text(language_code, "salon_location")
     await message.answer(
         appointment.format(
-            n='',
+            n="",
             procedure=procedure,
             date=date,
             time=time,
@@ -997,9 +1058,10 @@ async def looking(language_code, obj, procedure, date, time, duration, address, 
     )
     return True
 
-async def looking_another(call,state):
-    '''Looks for another appointments'''
-    language_code= await language_code_give(call, state)
+
+async def looking_another(call, state):
+    """Looks for another appointments"""
+    language_code = await language_code_give(call, state)
     today = datetime.date.today()
 
     chat_id = call.message.chat.id
@@ -1010,7 +1072,7 @@ async def looking_another(call,state):
 
     rows = cursor.fetchall()
     if rows == []:
-        none=await translate_text(language_code,"none_appointment")
+        none = await translate_text(language_code, "none_appointment")
         await call.message.answer(none)
         return False
     else:
@@ -1025,9 +1087,9 @@ async def looking_another(call,state):
                 row[5],
             )
             # await  call.message.answer(f"{procedure, date, time, duration, place, price}")
-            your_appointment=await translate_text(language_code, "your_appointment")
+            your_appointment = await translate_text(language_code, "your_appointment")
             if place == "salon":
-                place =await translate_text(language_code, "salon_location")
+                place = await translate_text(language_code, "salon_location")
             await call.message.answer(
                 your_appointment.format(
                     n=i,
@@ -1038,14 +1100,14 @@ async def looking_another(call,state):
                     place=place,
                     price=price,
                 ),
-
             )
             i += 1
 
         return rows
 
+
 async def change_delete(call, state):
-    '''gives an option to change the appointment od delete it '''
+    """gives an option to change the appointment od delete it"""
     language_code = await language_code_give(call, state)
 
     change_delete, cahnge_button, no_button, del_button = await translate_text(
@@ -1061,6 +1123,8 @@ async def change_delete(call, state):
     )
 
     await call.message.answer(change_delete, reply_markup=markup)
+
+
 async def are_you_sure(call, state):
     """Insure at chosen option"""
     choise = call.data
@@ -1081,12 +1145,22 @@ async def are_you_sure(call, state):
 
 
 async def change_date_appointment(call, state):
-    '''Change date appointment'''
-    #takes datas to find the appointment
-    procedure, date, time, duration, address, total_priсe, registration_time, procedure_number, kind = nearest_appointment(call)
+    """Change date appointment"""
+    # takes datas to find the appointment
+    (
+        procedure,
+        date,
+        time,
+        duration,
+        address,
+        total_priсe,
+        registration_time,
+        procedure_number,
+        kind,
+    ) = nearest_appointment(call)
     chat_id = call.message.chat.id
     # change status of appointment
-    now=call.message.date
+    now = call.message.date
     cursor.execute(
         "UPDATE appointments SET status=3, changed=? WHERE date=? AND time=? AND chat_id=?",
         (now, date, time, chat_id),
@@ -1105,20 +1179,31 @@ async def change_date_appointment(call, state):
     await state.update_data(procedure_number=procedure_number)
     await state.update_data(registration_time=registration_time)
 
+    # Delete appointment from google calendar
+    await delete_event(call, date, time, reason="MOVED", colorId=8)
 
 
 async def cancel_appointment(call, state):
     """cancel the appointment"""
-    procedure, date, time, duration, address, price = nearest_appointment(call)
+    (
+        procedure,
+        date,
+        time,
+        duration,
+        address,
+        price,
+        registration_time,
+        procedure_number,
+        kind,
+    ) = nearest_appointment(call)
     chat_id = call.message.chat.id
-    now=call.message.date
+    now = call.message.date
     # change status of appointment
     cursor.execute(
         "UPDATE appointments SET status=0, changed=? WHERE date=? AND time=? AND chat_id=?",
         (now, date, time, chat_id),
     )
     conn.commit()
-
     # take phone number
     phone = cursor.execute("SELECT phone_number FROM users WHERE id = ?;", (chat_id,))
     phone = cursor.fetchone()
@@ -1127,9 +1212,32 @@ async def cancel_appointment(call, state):
     language_code = await language_code_give(call, state)
     we_will_call = await translate_text(language_code, "we_will_call")
     await call.message.answer(we_will_call.format(phone=str(phone)))
+    await delete_event(call, date, time)
 
 
-
+async def delete_event(call, date, time, reason="CANCELED", colorId=11):
+    # Delete appointment from google calendar
+    calendar.del_event(calendar_id=calendar_id, date=date, start_time=time)
+    chat_id = call.message.chat.id
+    row = cursor.execute(
+        "SELECT phone_number, first_name, last_name FROM users WHERE id = ?;",
+        (chat_id,),
+    )
+    row = cursor.fetchone()
+    phone = row[0]
+    first_name = row[1]
+    last_name = row[2]
+    summary = f"{first_name} {last_name}: +{phone}"
+    body = create_event_body(
+        date=date,
+        start_time=time,
+        duration=0,
+        summary=reason,
+        description=summary,
+        location=reason,
+        colorId=colorId,
+    )
+    calendar.add_event(calendar_id=calendar_id, body=body)
 
 
 # async def exit(obj, state):
