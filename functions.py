@@ -360,8 +360,8 @@ async def chose_massage_procedure_propose(language_code, obj):
                 + text[language_code][f"currency"]
                 + "\n\n"
             )
-            keys.append(f"{i}")
-    keyboard = await kb.plural_buttons(keys)
+            keys.append(f"{i} "+ text[language_code][f"act_1_{i}"],)
+    keyboard = await kb.plural_buttons(keys,in_row=1)
     await message.answer(propose, reply_markup=keyboard)
 
 
