@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 import logging
 import os
 
+
+
 import functions as fn
 import states as ST
 
@@ -53,11 +55,11 @@ async def help(message=types.Message, state=FSMContext):
     if not language_code:
         await language_start(message)
         return
-    fn.help_message(message, state, language_code)
+    await fn.help_message(message, state, language_code)
 
 
 @dp.message_handler(commands=["our"], state="*")
-async def help(message=types.Message, state=FSMContext):
+async def our_contact(message=types.Message, state=FSMContext):
     """send message about saloon"""
     await fn.our_contact(bot, message, state)
 
@@ -210,6 +212,21 @@ async def booking(message=types.Message, state=FSMContext):
     # For 1 massagist
     await state.update_data(kind="massage")
 
+@dp.message_handler(
+    commands=['1','2','3','4','5'],
+    state=ST.Booking.SEL_Proc,
+)
+async def procedure_chosen_by_commands(message=types.Message, state=FSMContext):
+    if message.text[0] == "/":
+        message.text=message.text[1]
+    # take the language code
+    language_code = await fn.language_code_give(message, state)
+    # save the number chosen procedure
+    await fn.save_chosen_procedure(message, state, language_code)
+    # sand a massage the propose to choose a place
+    await fn.ask_for_location(message, language_code)
+    await ST.Booking.SEL_Place.set()
+
 
 @dp.message_handler(
     lambda c: any(str(num) in c.text for num in range(1, 5 + 1)),
@@ -284,7 +301,11 @@ async def take_day_from_user(message: types.Message, state=FSMContext):
 @dp.message_handler(state=ST.Booking.SEL_Time)
 async def take_time_from_user(message: types.Message, state=FSMContext):
     """Take and save in state time of appointment from user, send a confirmation"""
-    if await fn.time_selector(message, state):
+    back = await fn.back(message, state)
+    if message.text == back:
+        await fn.ask_for_data(message, state)
+        await ST.Booking.SEL_Date.set()
+    elif await fn.time_selector(message, state):
         await fn.approve_appointment(message, state)
         await ST.Booking.END_BOOK.set()
     else:

@@ -208,7 +208,7 @@ async def last_name(message, state):
     await message.answer(last_name_text, reply_markup=keyboard)
 async def back(obj, state):
     language_code = await language_code_give(obj, state)
-    back = translate_text(language_code,"back")
+    back =await translate_text(language_code,"back")
     return back
 async def ask_telephone(obj, language_code):
     """Ask for telephone number"""
@@ -362,7 +362,7 @@ async def chose_massage_procedure_propose(language_code, obj):
         n += 1
         for i in range(1, n):
             propose += (
-                f"{i} "
+                f"/{i} "
                 + text[language_code][f"act_1_{i}"]
                 + "\t"
                 + text[language_code][f"time_act_1_{i}"]
@@ -384,15 +384,16 @@ async def save_chosen_procedure(message, state, language_code):
     # save it into state
     await state.update_data(procedure_number=procedure_number)
     # takes phrases in default language
-    description = f"act_1_{procedure_number}_descr"
-    you_chose, description, duration = await translate_text(
-        language_code, ["you_chose", description, f"time_act_1_{procedure_number}"]
+
+    you_chose, description, duration, act = await translate_text(
+        language_code, ("you_chose", f"act_1_{procedure_number}_descr", f"time_act_1_{procedure_number}",f"act_1_{procedure_number}")
     )
 
     duration = only_numbers(duration)
     await state.update_data(duration=int(duration))
     # send message with chosen procedure
-    await message.answer(f"{you_chose}: {message.text}")
+    await message.answer(f"{you_chose}: {act}",reply_markup=types.ReplyKeyboardRemove())
+
     # send message with description of procedure
     await message.answer(description)
 
@@ -536,7 +537,7 @@ async def day_selector(message, state):
 async def ask_for_time(message, state):
     # Import message text
     language_code = await language_code_give(message, state)
-    ask_for_time = await translate_text(language_code, "ask_for_time")
+    ask_for_time, back = await translate_text(language_code, ("ask_for_time","back"))
     # change Time format
     data = await state.get_data()
     day = data.get("day")
@@ -580,6 +581,7 @@ async def ask_for_time(message, state):
         return False
 
     formatted_times = [time.strftime("%H:%M") for time in times]
+    formatted_times.append(back)
     markup_request = await kb.plural_buttons(formatted_times, 5)
     await message.answer(ask_for_time, reply_markup=markup_request)
     return True
@@ -765,6 +767,7 @@ async def time_selector(message, state):
     incorrect_time, time_busy = await translate_text(
         language_code, ["incorrect_time", "time_busy"]
     )
+
     # change Time format
     time_appointment = time_formatter(message.text)
 
