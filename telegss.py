@@ -107,10 +107,27 @@ async def looking(message=types.Message, state=FSMContext):
         procedure_number,
         kind,
     ) = fn.nearest_appointment(message)
-    if await fn.looking(
-        language_code, message, procedure, date, time, duration, address, total_priсe
-    ):
-        await ST.ServiseSmoothState.CHOOSE_lOOK.set()
+    await ST.ServiseSmoothState.CHOOSE_lOOK.set()
+    await fn.looking(
+         message, state, procedure, date, time, duration, address, total_priсe
+    )
+        # await ST.ServiseSmoothState.CHOOSE_lOOK.set()
+
+
+@dp.callback_query_handler(
+    lambda c: c.data.startswith("this|"), state=ST.ServiseSmoothState.CHOOSE_lOOK
+)
+async def this_one(call, state=FSMContext):
+
+    query = call.data.split('|')
+    index= query[1]
+    data = await state.get_data()
+    datas = data.get(index)
+    procedure, date, time, duration, place, price = datas.values()
+    language_code=await fn.language_code_give(call, state)
+    await fn.looking(
+         call, state, procedure, date, time, duration, address=place, total_priсe=price
+    )
 
 
 @dp.callback_query_handler(
@@ -118,8 +135,7 @@ async def looking(message=types.Message, state=FSMContext):
 )
 async def look_another(call, state=FSMContext):
     await fn.looking_another(call, state)
-
-
+    # await fn.chose_appointment_to_look(call,state)
 @dp.callback_query_handler(
     lambda c: c.data == "chen_del", state=ST.ServiseSmoothState.CHOOSE_lOOK
 )
@@ -308,7 +324,7 @@ async def take_time_from_user(message: types.Message, state=FSMContext):
     if message.text == back:
         await fn.ask_for_data(message, state)
         await ST.Booking.SEL_Date.set()
-    elif await fn.time_selector(message, state,bot):
+    elif await fn.time_selector(message, state, bot):
         await fn.approve_appointment(message, state)
         await ST.Booking.END_BOOK.set()
     else:

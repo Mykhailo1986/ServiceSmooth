@@ -58,7 +58,21 @@ async def selectLanguageAgre(language_code, localeLanguageName=None):
 
     return question, markup
 
+async def one_InlineKeyboardButton(
+     buttonName1, option1
+):
+    """Return markup for a single button without translation text
+    takes the button text in this form ("buttonName", "option")
+    """
 
+
+    markup = types.InlineKeyboardMarkup()
+
+    markup.row(
+        types.InlineKeyboardButton(buttonName1, callback_data=option1),
+
+    )
+    return  markup
 async def two_InlineKeyboardButton(
     languageCode, question, buttonName1, buttonName2, option1, option2
 ):
@@ -78,7 +92,7 @@ async def two_InlineKeyboardButton(
 
 async def InlineKeyboardButton_plural(request):
     """Return markups without translation text
-    takes the request in this form (("buttonName1", "option1"),("buttonName2", "option1, option2"))
+    takes the request in this form (("buttonName1", "option1"),("buttonName2",  option2"))
     """
     markup = types.InlineKeyboardMarkup()
     markup.add(
