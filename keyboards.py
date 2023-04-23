@@ -21,34 +21,7 @@ async def translate_text(language_code, request):
     return response
 
 
-# async def selectLanguageAgre(languageCode,localeLanguageName=0):
-#     '''Confirm selected language'''
-#     # Load the text strings from the JSON file
-#     with open('text.json', 'r', encoding='utf-8') as f:
-#         text = json.load(f)
-#
-#         # Ask a question in the user's preferred language
-#         if languageCode in [keys for keys in text]:
-#             question = text[languageCode]['greeting1'] + text[languageCode]['language_name'] + '\n' + \
-#                        text[languageCode]['greeting2']
-#
-#         else:
-#
-#             question = "Hello, your default language is : " + localeLanguageName + ".\n" \
-#                        " Unfortunately, your language is not yet supported," \
-#                        " so the default language will be set to English automatically." \
-#                        " If you agree, press 'Yes',\n or you can choose another language by pressing 'Chose'."
-#             languageCode = 'en'
-#
-#         markup = types.InlineKeyboardMarkup()
-#         yes = text[languageCode]['yes']
-#         change = text[languageCode]['change']
-#
-#         markup.row(
-#             types.InlineKeyboardButton(yes, callback_data=f"save the language={languageCode}"),
-#             types.InlineKeyboardButton(change, callback_data="chose other language"))
-#     return question, markup
-async def selectLanguageAgre(language_code, localeLanguageName=0):
+async def selectLanguageAgre(language_code, localeLanguageName=None):
     """Confirm selected language"""
 
     # Load the text strings from the JSON file
@@ -86,11 +59,10 @@ async def selectLanguageAgre(language_code, localeLanguageName=0):
     return question, markup
 
 
-
 async def two_InlineKeyboardButton(
     languageCode, question, buttonName1, buttonName2, option1, option2
 ):
-    """Makes 2 buttons and text"""
+    """Makes 2 buttons and translated text"""
     question, buttonName1, buttonName2 = await translate_text(
         languageCode, [question, buttonName1, buttonName2]
     )
@@ -102,10 +74,12 @@ async def two_InlineKeyboardButton(
         types.InlineKeyboardButton(buttonName2, callback_data=option2),
     )
     return question, markup
+
+
 async def InlineKeyboardButton_plural(request):
-    '''Return markups without translation
-        takes the request in this form (("buttonName1", "option1"),("buttonName2", "option1, option2"))
-    '''
+    """Return markups without translation text
+    takes the request in this form (("buttonName1", "option1"),("buttonName2", "option1, option2"))
+    """
     markup = types.InlineKeyboardMarkup()
     markup.add(
         *[
@@ -113,7 +87,9 @@ async def InlineKeyboardButton_plural(request):
             for button_text in request
         ]
     )
-    return  markup
+    return markup
+
+
 async def languageOption():
     """Makes a row with possible languages by keys from file."""
     with open("text.json", "r", encoding="utf-8") as f:
@@ -134,20 +110,19 @@ async def one_button(button_text):
     keyboard.add(types.KeyboardButton(button_text))
     return keyboard
 
-async def plural_buttons(request,in_row=3):
 
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True, row_width=in_row)
-    keyboard.add(
-        *[
-            types.KeyboardButton(button_text)
-    for button_text in request
-        ]
+async def plural_buttons(request, in_row=3):
+
+    keyboard = types.ReplyKeyboardMarkup(
+        resize_keyboard=True, one_time_keyboard=True, row_width=in_row
     )
+    keyboard.add(*[types.KeyboardButton(button_text) for button_text in request])
 
     return keyboard
 
+
 async def your_phone_number(send_contact):
-    """ask for phone nomber"""
+    """ask for phone number"""
     markup_request = types.ReplyKeyboardMarkup(
         resize_keyboard=True, one_time_keyboard=True
     ).add(types.KeyboardButton(send_contact, request_contact=True))
@@ -155,7 +130,8 @@ async def your_phone_number(send_contact):
 
 
 async def your_location(send_location):
-    '''ask for your location'''
-    markup_request = types.ReplyKeyboardMarkup(resize_keyboard=True,one_time_keyboard=True).add(
-        types.KeyboardButton(send_location, request_location=True))
+    """ask for your location"""
+    markup_request = types.ReplyKeyboardMarkup(
+        resize_keyboard=True, one_time_keyboard=True
+    ).add(types.KeyboardButton(send_location, request_location=True))
     return markup_request

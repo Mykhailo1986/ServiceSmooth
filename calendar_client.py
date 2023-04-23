@@ -99,14 +99,13 @@ class GoogleCalendar:
 def create_event_body(
     date, start_time, duration, summary, description, location, colorId
 ):
-    """create body for event"""
+    """create the body for event"""
 
     end_time = datetime.datetime.strptime(start_time, "%H:%M:%S") + datetime.timedelta(
         minutes=duration
     )
     formatted_time = end_time.strftime("%H:%M:%S")
     end_date_time = f"{date}T{formatted_time}"
-    print(date)
     event = {
         "summary": summary,
         "location": location,

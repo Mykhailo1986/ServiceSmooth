@@ -7,7 +7,6 @@ import logging
 import os
 
 
-
 import functions as fn
 import states as ST
 
@@ -19,18 +18,18 @@ dp = Dispatcher(bot, storage=MemoryStorage())
 dp.middleware.setup(LoggingMiddleware())
 
 
-@dp.message_handler(commands=["state"], state="*")
-async def print_current_state(message: types.Message, state: FSMContext):
-    current_state = await state.get_state()
-    await bot.send_message(chat_id=617409965, text=message.date)
-    if current_state is None:
-        await message.answer("The current state is not defined.")
-    else:
-        await message.answer(f"The current state is {current_state}")
-
-    await fn.test(
-        message,
-    )
+# @dp.message_handler(commands=["state"], state="*")
+# async def print_current_state(message: types.Message, state: FSMContext):
+#     current_state = await state.get_state()
+#     await bot.send_message(chat_id=617409965, text=message.date)
+#     if current_state is None:
+#         await message.answer("The current state is not defined.")
+#     else:
+#         await message.answer(f"The current state is {current_state}")
+#
+#     await fn.test(
+#         message,
+#     )
 
 
 @dp.message_handler(commands=["start"], state="*")
@@ -212,13 +211,14 @@ async def booking(message=types.Message, state=FSMContext):
     # For 1 massagist
     await state.update_data(kind="massage")
 
+
 @dp.message_handler(
-    commands=['1','2','3','4','5'],
+    commands=["1", "2", "3", "4", "5"],
     state=ST.Booking.SEL_Proc,
 )
 async def procedure_chosen_by_commands(message=types.Message, state=FSMContext):
     if message.text[0] == "/":
-        message.text=message.text[1]
+        message.text = message.text[1]
     # take the language code
     language_code = await fn.language_code_give(message, state)
     # save the number chosen procedure
@@ -259,12 +259,15 @@ async def my_place(call, state=FSMContext):
     # ask for coordinate
     await fn.ask_location(call, state)
 
+
 @dp.callback_query_handler(lambda c: c.data == "back", state=ST.Booking.SEL_Place)
 async def back_to_procedure(call, state=FSMContext):
     """give an information about location of salon"""
-    language_code = await fn.language_code_give(call,state)
+    language_code = await fn.language_code_give(call, state)
     await fn.chose_massage_procedure_propose(language_code, call)
     await ST.Booking.SEL_Proc.set()
+
+
 @dp.message_handler(
     content_types=types.ContentType.LOCATION, state=ST.Booking.SEL_Place
 )
@@ -294,7 +297,7 @@ async def take_address_from_message(message: types.Message, state=FSMContext):
 async def take_day_from_user(message: types.Message, state=FSMContext):
     """Take and save in state date of appointment from user inputs, asking for time"""
     await fn.day_selector(message, state)
-    if await fn.ask_for_time(message, state):
+    if await fn.ask_for_time(message, state, bot):
         await ST.Booking.SEL_Time.set()
 
 
@@ -305,11 +308,11 @@ async def take_time_from_user(message: types.Message, state=FSMContext):
     if message.text == back:
         await fn.ask_for_data(message, state)
         await ST.Booking.SEL_Date.set()
-    elif await fn.time_selector(message, state):
+    elif await fn.time_selector(message, state,bot):
         await fn.approve_appointment(message, state)
         await ST.Booking.END_BOOK.set()
     else:
-        await fn.ask_for_time(message, state)
+        await fn.ask_for_time(message, state, bot)
 
 
 @dp.callback_query_handler(lambda c: c.data == "book again", state=ST.Booking.END_BOOK)
@@ -372,7 +375,7 @@ async def input_last_name(message=types.Message, state=FSMContext):
 @dp.message_handler(state=ST.FirstRegistration.L_NAME_REG)
 async def listen_last_name(message=types.Message, state=FSMContext):
     """Listen the last name"""
-    if message.text=="🔙":
+    if message.text == "🔙":
         await ST.FirstRegistration.F_NAME_REG.set()
         await fn.first_name(message, state)
         return
@@ -436,9 +439,10 @@ async def handler_phone_number(message=types.Message, state=FSMContext):
 @dp.message_handler(state=ST.FirstRegistration.EMAIL_REG)
 async def handler_email(message=types.Message, state=FSMContext):
     """Listen the E-Mail and save all"""
-    language_code = await fn.language_code_give(message,state)
-    skip, back, valid_email = await fn.translate_text(language_code,
-                                                     ["skip", "back", "valid_email"])
+    language_code = await fn.language_code_give(message, state)
+    skip, back, valid_email = await fn.translate_text(
+        language_code, ["skip", "back", "valid_email"]
+    )
 
     if message.text == back:
         await fn.ask_telephone(message, language_code)

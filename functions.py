@@ -19,7 +19,7 @@ cursor = conn.cursor()
 
 # working_time = {"work_start": datetime.time(8, 0), "work_end": datetime.time(22, 0)}
 rest_days = [datetime.date(2023, 4, 16), datetime.date(2023, 4, 17)]
-
+specialist = 617409965
 """FOR MAX procedure search for n=5
     look in procedure_chosen in telegrass.py
     and look in text.json FROM line "act_1_1" ... TO line "time_act_1_5"
@@ -66,6 +66,7 @@ def only_numbers(text_with_nombers):
 
 
 def obj_processor(obj):
+    """return message from call and message type"""
     if isinstance(obj, types.Message):
         message = obj
     elif isinstance(obj, types.CallbackQuery):
@@ -186,7 +187,7 @@ async def name_agree(message, language_code, first_name, last_name):
 
 async def first_name(obj, state):
     """Input firs name"""
-    message=obj_processor(obj)
+    message = obj_processor(obj)
     first_name = message.chat.first_name
     data = await state.get_data()
     language_code = data.get("language_code")
@@ -200,16 +201,22 @@ async def last_name(message, state):
     last_name = message.chat.last_name
     data = await state.get_data()
     language_code = data.get("language_code")
-    last_name_text, your_first_name, back = await translate_text(language_code, ["last_name_text", "your_first_name",'back'])
+    last_name_text, your_first_name, back = await translate_text(
+        language_code, ["last_name_text", "your_first_name", "back"]
+    )
     keyboard = await kb.one_button(last_name)
-    keyboard = await kb.plural_buttons([last_name,back])
+    keyboard = await kb.plural_buttons([last_name, back])
     await message.answer(f"{your_first_name}{message.text}")
 
     await message.answer(last_name_text, reply_markup=keyboard)
+
+
 async def back(obj, state):
     language_code = await language_code_give(obj, state)
-    back =await translate_text(language_code,"back")
+    back = await translate_text(language_code, "back")
     return back
+
+
 async def ask_telephone(obj, language_code):
     """Ask for telephone number"""
     message = obj_processor(obj)
@@ -234,12 +241,12 @@ async def ask_email(message, state):
     """Ask for email"""
     language_code = await language_code_give(message, state)
     ask_for_email = await translate_text(language_code, "ask_for_email")
-    ask_for_email, skip, back = await translate_text(language_code,
-                                                                 ["ask_for_email", "skip", "back"])
+    ask_for_email, skip, back = await translate_text(
+        language_code, ["ask_for_email", "skip", "back"]
+    )
 
     keyboard = await kb.plural_buttons([skip, back])
     await message.answer(ask_for_email, reply_markup=keyboard)
-
 
 
 async def end_registration(message, state):
@@ -311,27 +318,12 @@ async def extract_and_save_from_contact(message, state):
     await state.update_data(last_name=last_name)
 
 
-async def thanks(obj):
-    """Send thanks"""
-    # Takes a language from state
-    message = obj_processor(obj)
-    chat_id = int(message.chat.id)
-    language_code = await language_coge_from_DB(chat_id)
-    thanks = await translate_text(language_code, "thanks")
-    await message.answer(thanks)
-
-
 async def end_reregistration(call, state):
+    """send message with info that registration is end,  and propose to choise booking the appointment or look onother options"""
     language_code = await language_code_give(call, state)
     end_reg = await translate_text(language_code, "end_reg")
-    key = await kb.one_button("/book")
+    key = await kb.plural_buttons(("/book", "/help"))
     await call.message.answer(end_reg, reply_markup=key)
-
-
-async def registration_booking(message, language_code):
-    await send_registration_confirmation_message(message)
-    go_reg = await translate_text(language_code, "go_reg")
-    await message.answer(go_reg)
 
 
 async def ask_for_specialist(message, language_code):
@@ -348,7 +340,7 @@ async def specialist_name(language_code, message):
 
 
 async def chose_massage_procedure_propose(language_code, obj):
-    """Send the message options"""
+    """Send a message with the available procedure options."""
     message = obj_processor(obj)
     chose_procedure = await translate_text(language_code, "chose_procedure")
     await message.answer(chose_procedure)
@@ -372,8 +364,10 @@ async def chose_massage_procedure_propose(language_code, obj):
                 + text[language_code][f"currency"]
                 + "\n\n"
             )
-            keys.append(f"{i} "+ text[language_code][f"act_1_{i}"],)
-    keyboard = await kb.plural_buttons(keys,in_row=1)
+            keys.append(
+                f"{i} " + text[language_code][f"act_1_{i}"],
+            )
+    keyboard = await kb.plural_buttons(keys, in_row=1)
     await message.answer(propose, reply_markup=keyboard)
 
 
@@ -386,36 +380,35 @@ async def save_chosen_procedure(message, state, language_code):
     # takes phrases in default language
 
     you_chose, description, duration, act = await translate_text(
-        language_code, ("you_chose", f"act_1_{procedure_number}_descr", f"time_act_1_{procedure_number}",f"act_1_{procedure_number}")
+        language_code,
+        (
+            "you_chose",
+            f"act_1_{procedure_number}_descr",
+            f"time_act_1_{procedure_number}",
+            f"act_1_{procedure_number}",
+        ),
     )
 
     duration = only_numbers(duration)
     await state.update_data(duration=int(duration))
     # send message with chosen procedure
-    await message.answer(f"{you_chose}: {act}",reply_markup=types.ReplyKeyboardRemove())
+    await message.answer(
+        f"{you_chose}: {act}", reply_markup=types.ReplyKeyboardRemove()
+    )
 
     # send message with description of procedure
     await message.answer(description)
 
 
 async def ask_for_location(message, language_code):
-    """Propse to chose a place"""
-    # place, keyboard = await kb.two_InlineKeyboardButton(
-    #     language_code,
-    #     "place",
-    #     "salon",
-    #     "my_place",
-    #     "place",
-    #     "my_place",
-    # )
-    #
-
-    place, my_place, salon, back = await translate_text(language_code,("place", "my_place", "salon", "back"))
-
-    keyboard =await kb.InlineKeyboardButton_plural(((salon, "salon"),(my_place, "my_place"),(back,"back")))
+    """Propose to chose a place"""
+    place, my_place, salon, back = await translate_text(
+        language_code, ("place", "my_place", "salon", "back")
+    )
+    keyboard = await kb.InlineKeyboardButton_plural(
+        ((salon, "salon"), (my_place, "my_place"), (back, "back"))
+    )
     await message.answer(place, reply_markup=keyboard)
-
-
 
 
 async def our_contact(bot, obj, state):
@@ -444,7 +437,7 @@ async def ask_location(call, state):
 
 
 def fifteen_days(n):
-    """Return 15 days from todey exept rest_days"""
+    """Return the date that is 15 days from today, excluding any specified rest days."""
     current_date = datetime.datetime.now().date()
     dates = [current_date + datetime.timedelta(days=x) for x in range(n)]
     rest_day = datetime.date(2023, 4, 16)  # example date to exclude
@@ -456,7 +449,7 @@ def fifteen_days(n):
 
 
 def get_date(number):
-    """takes a number as an input and returns a date based on whether the number is greater or less than the current date's day"""
+    """takes a number as an input and returns the date, based on whether the number is greater or less than the current date's day"""
     today = datetime.datetime.today()
     if number > today.day:
         return today.replace(day=number).strftime("%Y-%m-%d")
@@ -466,7 +459,7 @@ def get_date(number):
 
 
 def get_date_with_month(four_diget):
-    # Makes from 4 digits the data
+    """Makes the date from 4 digits"""
     date_string = four_diget
     year = datetime.datetime.now().year
     day = int(date_string[:2])
@@ -513,7 +506,6 @@ async def ask_for_data(obj, state):
         dates = fifteen_days(n)
 
     formatted_dates = [date.strftime("%d-%m") for date in dates]
-
     markup_request = await kb.plural_buttons(formatted_dates, 5)
     # send message with 15 buttons of the day
     await message.answer(ask_for_date, reply_markup=markup_request)
@@ -534,10 +526,10 @@ async def day_selector(message, state):
     await state.update_data(day=day)
 
 
-async def ask_for_time(message, state):
+async def ask_for_time(message, state, bot):
     # Import message text
     language_code = await language_code_give(message, state)
-    ask_for_time, back = await translate_text(language_code, ("ask_for_time","back"))
+    ask_for_time, back = await translate_text(language_code, ("ask_for_time", "back"))
     # change Time format
     data = await state.get_data()
     day = data.get("day")
@@ -549,7 +541,7 @@ async def ask_for_time(message, state):
     takes_time = duration + time_addition
     busy_time = busy_time_maker(day)
     times = give_possible_time(busy_time, duration)
-    # if in this day didnt fit any more appointments this size
+    # if in this day didn't fit no more appointments this size
     if times == []:
         procedure_number = data.get("procedure_number")
         chat_id = int(message.chat.id)
@@ -565,6 +557,7 @@ async def ask_for_time(message, state):
         )
         if not price:
             price = data.get("total_priсe")
+        # send incomplete appointment to the DB
         query = """
             INSERT INTO appointments
             (chat_id, date, procedure, duration, place, price, registration_time, phone , status)
@@ -575,7 +568,23 @@ async def ask_for_time(message, state):
             (chat_id, day, act, takes_time, address, int(price), now, chat_id),
         )
         conn.commit()
+
+        row = cursor.execute(
+            "SELECT phone_number, first_name, last_name FROM users WHERE id = ?;",
+            (chat_id,),
+        )
+        row = cursor.fetchone()
+        phone = row[0]
+        first_name = row[1]
+        last_name = row[2]
+        summary = f"{first_name} {last_name}: +{phone}"
+        # send message to administrator with info about incompleted appointment
+        await bot.send_message(
+            chat_id=specialist, text=f"Incompleted appointment for {day} \n{summary} "
+        )
+        # Send a message to the user informing them that there are no available appointments on that day.
         await message.answer(day_busy)
+        # go to ask date again
         await ask_for_data(message, state)
         await ST.Booking.SEL_Date.set()
         return False
@@ -623,7 +632,7 @@ def busy_time_maker(day):
 
 
 def time_formatter(text):
-    """make inputed text in datatime format"""
+    """change entered text in datatime format"""
     number = only_numbers(text)
     if len(number) == 0:
         return None
@@ -760,7 +769,7 @@ def check_time_slot_fit(start_time, duration, gaps):
     return False
 
 
-async def time_selector(message, state):
+async def time_selector(message, state, bot):
     """hear and change the recived time in correct format save it  and ask for time"""
     # Import message text
     language_code = await language_code_give(message, state)
@@ -773,7 +782,7 @@ async def time_selector(message, state):
 
     if not time_appointment:
         await message.reply(incorrect_time)
-        await ask_for_time(message, state)
+        await ask_for_time(message, state, bot)
 
     # take datta from state
     data = await state.get_data()
@@ -805,7 +814,6 @@ async def approve_appointment(message, state):
     # load datas from state
     data = await state.get_data()
     day = data.get("day")
-
     time_appointment = data.get("time_appointment")
     try:
         time_appointment = time_appointment.strftime("%H:%M:%S")
@@ -813,7 +821,6 @@ async def approve_appointment(message, state):
         return False
     procedure_number = data.get("procedure_number")
     address = data.get("address")
-
     specialist = data.get("specialist")
     kind = data.get("kind")
     out = data.get("out")
@@ -845,9 +852,8 @@ async def approve_appointment(message, state):
             "currency",
         ],
     )
-    # time_addition it's time to get in to the place what client chose
-    # calculate price
 
+    # calculate price
     if not price_total:
         price = only_numbers(price)
 
@@ -859,12 +865,11 @@ async def approve_appointment(message, state):
 
     if data.get("procedure"):
         act = data.get("procedure")
-    # calculate time
-    takes_time = duration
 
+    takes_time = duration
+    # add in to DB
     chat_id = int(message.chat.id)
     now = message.date
-
     cursor.execute(
         "INSERT INTO appointments (chat_id, date, time, procedure, duration, place, price, registration_time, procedure_number, kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
@@ -888,6 +893,7 @@ async def approve_appointment(message, state):
     )
     if address == "salon":
         address = salon_location
+    # send the message with all datas to user for prove
     await message.answer(
         f"{approve_appointment}{act}\n{day} {time_appointment}\n{loc}{address}\n{price_total}{currency}\n{str(takes_time)}",
         reply_markup=keyboard,
@@ -916,16 +922,17 @@ async def create_en_event(call, state, summary):
             "place",
         ],
     )
-
+    # create the body for events
     first_name = call.message.chat.first_name
     last_name = call.message.chat.last_name
-
+    # give event the color if outside
     colorId = 1
     if not price_total:
         price = int(price)
 
         if address == "salon":
             price_total = int(price)
+            # give event the color if in salon
             colorId = 2
             address = salon
         else:
@@ -942,6 +949,7 @@ async def create_en_event(call, state, summary):
         location=address,
         colorId=colorId,
     )
+    # add the event in to the google calendar
     calendar.add_event(calendar_id=calendar_id, body=event)
 
 
@@ -985,15 +993,20 @@ async def confirm_appointment(call, state, bot):
     # create the event in Google calendar
 
     # sand messages
-    await thanks(call)
+
     language_code = await language_code_give(call, state)
-    we_will_call = await translate_text(language_code, "we_will_call")
-    await call.message.answer(we_will_call.format(phone=str(phone)))
+    we_will_call, thanks = await translate_text(
+        language_code, ("we_will_call", "thanks")
+    )
+
+    await call.message.answer(f"{thanks}\n{we_will_call.format(phone=str(phone))}")
     data = await state.get_data()
     day = data.get("day")
     time_appointment = data.get("time_appointment")
-
-    await bot.send_message(chat_id=617409965, text=f"Appointment {day} {time_appointment}/n{summary} ")
+    #  send message about appointment
+    await bot.send_message(
+        chat_id=specialist, text=f"Appointment {day} {time_appointment}\n{summary} "
+    )
 
 
 async def help_message(message, state, language_code):
@@ -1003,7 +1016,7 @@ async def help_message(message, state, language_code):
 
 
 def nearest_appointment(obj):
-    """takes datta for nearest appointment"""
+    """takes data for nearest appointment"""
     message = obj_processor(obj)
     today = datetime.date.today().strftime("%Y-%m-%d")
     now = datetime.datetime.now().strftime("%H:%M:%S")
@@ -1090,7 +1103,7 @@ async def looking_another(call, state):
     """Looks for another appointments"""
     language_code = await language_code_give(call, state)
     today = datetime.date.today()
-
+    # takes the appointments from database
     chat_id = call.message.chat.id
     rows = cursor.execute(
         "SELECT procedure, date, time, duration, place, price FROM appointments WHERE date>=? AND status=1 AND chat_id=? ORDER BY date, time;",
@@ -1135,20 +1148,16 @@ async def looking_another(call, state):
 
 async def change_delete(call, state):
     """gives an option to change the appointment od delete it"""
+    # get text
     language_code = await language_code_give(call, state)
-
     change_delete, cahnge_button, no_button, del_button = await translate_text(
         language_code, ["change_delete", "cng_app", "no", "del"]
     )
-
-    markup = types.InlineKeyboardMarkup()
-
-    markup.row(
-        types.InlineKeyboardButton(cahnge_button, callback_data="change"),
-        types.InlineKeyboardButton(no_button, callback_data="no"),
-        types.InlineKeyboardButton(del_button, callback_data="cancel"),
+    # get buttons
+    markup = await kb.InlineKeyboardButton_plural(
+        ((cahnge_button, "change"), (no_button, "no"), (del_button, "cancel"))
     )
-
+    # send message
     await call.message.answer(change_delete, reply_markup=markup)
 
 
@@ -1167,7 +1176,7 @@ async def are_you_sure(call, state):
     question, keyboard = await kb.two_InlineKeyboardButton(
         language_code, "you_sure", sure, "no", f"{choise} it", "no"
     )
-
+    # send message to prove the choise
     await call.message.answer(question.format(choise=choise), reply_markup=keyboard)
 
 
@@ -1210,7 +1219,7 @@ async def change_date_appointment(call, state, bot):
     await delete_event(call, date, time, bot, reason="MOVED", colorId=8)
 
 
-async def cancel_appointment(call, state,bot):
+async def cancel_appointment(call, state, bot):
     """cancel the appointment"""
     (
         procedure,
@@ -1238,14 +1247,16 @@ async def cancel_appointment(call, state,bot):
     # Send message we will call you
     language_code = await language_code_give(call, state)
     we_will_call = await translate_text(language_code, "we_will_call")
-    await call.message.answer(we_will_call.format(phone=str(phone)))
 
-    await delete_event(call, date, time,bot)
+    await call.message.answer(we_will_call.format(phone=str(phone)))
+    # delete event from google calendar
+    await delete_event(call, date, time, bot)
 
 
 async def delete_event(call, date, time, bot, reason="CANCELED", colorId=11):
     # Delete appointment from google calendar
     calendar.del_event(calendar_id=calendar_id, date=date, start_time=time)
+
     chat_id = call.message.chat.id
     row = cursor.execute(
         "SELECT phone_number, first_name, last_name FROM users WHERE id = ?;",
@@ -1256,8 +1267,9 @@ async def delete_event(call, date, time, bot, reason="CANCELED", colorId=11):
     first_name = row[1]
     last_name = row[2]
     summary = f"{first_name} {last_name}: +{phone}"
-    date_time=f"{date} {time}"
-    await bot.send_message(chat_id=617409965, text=f"{reason} {date_time}/n{summary}")
+    date_time = f"{date} {time}"
+    # send message to specialist
+    await bot.send_message(chat_id=specialist, text=f"{reason} {date_time}\n{summary}")
     body = create_event_body(
         date=date,
         start_time=time,
@@ -1267,19 +1279,5 @@ async def delete_event(call, date, time, bot, reason="CANCELED", colorId=11):
         location=reason,
         colorId=colorId,
     )
+    # left "crumbs" from deletions or canceling
     calendar.add_event(calendar_id=calendar_id, body=body)
-
-
-# async def exit(obj, state):
-#     message = obj_processor(obj)
-#     language_code = await language_code_give(message, state)
-#     exit = await translate_text(language_code, "exit")
-#     await message.answer(exit)
-#     await state.finish()
-#
-#
-# async def exit_button():
-#     """Create a keyboard with one button"""
-#     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=False)
-#     keyboard.add(types.KeyboardButton("/exit"))
-#     return keyboard
