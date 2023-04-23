@@ -960,7 +960,7 @@ async def test(message):
     await message.answer(summary)
 
 
-async def confirm_appointment(call, state):
+async def confirm_appointment(call, state, bot):
     """send message that will be call by phone and save the approved the appointment"""
 
     # take phone and name number
@@ -989,6 +989,11 @@ async def confirm_appointment(call, state):
     language_code = await language_code_give(call, state)
     we_will_call = await translate_text(language_code, "we_will_call")
     await call.message.answer(we_will_call.format(phone=str(phone)))
+    data = await state.get_data()
+    day = data.get("day")
+    time_appointment = data.get("time_appointment")
+
+    await bot.send_message(chat_id=617409965, text=f"Appointment {day} {time_appointment}/n{summary} ")
 
 
 async def help_message(message, state, language_code):
@@ -1166,7 +1171,7 @@ async def are_you_sure(call, state):
     await call.message.answer(question.format(choise=choise), reply_markup=keyboard)
 
 
-async def change_date_appointment(call, state):
+async def change_date_appointment(call, state, bot):
     """Change date appointment"""
     # takes datas to find the appointment
     (
@@ -1202,10 +1207,10 @@ async def change_date_appointment(call, state):
     await state.update_data(registration_time=registration_time)
 
     # Delete appointment from google calendar
-    await delete_event(call, date, time, reason="MOVED", colorId=8)
+    await delete_event(call, date, time, bot, reason="MOVED", colorId=8)
 
 
-async def cancel_appointment(call, state):
+async def cancel_appointment(call, state,bot):
     """cancel the appointment"""
     (
         procedure,
@@ -1234,10 +1239,11 @@ async def cancel_appointment(call, state):
     language_code = await language_code_give(call, state)
     we_will_call = await translate_text(language_code, "we_will_call")
     await call.message.answer(we_will_call.format(phone=str(phone)))
-    await delete_event(call, date, time)
+
+    await delete_event(call, date, time,bot)
 
 
-async def delete_event(call, date, time, reason="CANCELED", colorId=11):
+async def delete_event(call, date, time, bot, reason="CANCELED", colorId=11):
     # Delete appointment from google calendar
     calendar.del_event(calendar_id=calendar_id, date=date, start_time=time)
     chat_id = call.message.chat.id
@@ -1250,6 +1256,8 @@ async def delete_event(call, date, time, reason="CANCELED", colorId=11):
     first_name = row[1]
     last_name = row[2]
     summary = f"{first_name} {last_name}: +{phone}"
+    date_time=f"{date} {time}"
+    await bot.send_message(chat_id=617409965, text=f"{reason} {date_time}/n{summary}")
     body = create_event_body(
         date=date,
         start_time=time,

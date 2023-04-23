@@ -22,7 +22,7 @@ dp.middleware.setup(LoggingMiddleware())
 @dp.message_handler(commands=["state"], state="*")
 async def print_current_state(message: types.Message, state: FSMContext):
     current_state = await state.get_state()
-    await message.answer(message.date)
+    await bot.send_message(chat_id=617409965, text=message.date)
     if current_state is None:
         await message.answer("The current state is not defined.")
     else:
@@ -139,14 +139,14 @@ async def are_you_sure(call, state=FSMContext):
     lambda c: c.data == "change it", state=ST.ServiseSmoothState.CHOOSE_lOOK
 )
 async def change_date(call, state=FSMContext):
-    await fn.change_date_appointment(call, state)
+    await fn.change_date_appointment(call, state, bot)
 
 
 @dp.callback_query_handler(
     lambda c: c.data == "cancel it", state=ST.ServiseSmoothState.CHOOSE_lOOK
 )
 async def change_date(call, state=FSMContext):
-    await fn.cancel_appointment(call, state)
+    await fn.cancel_appointment(call, state, bot)
     await state.finish()
 
 
@@ -323,7 +323,7 @@ async def booking_again(call, state=FSMContext):
 
 @dp.callback_query_handler(lambda c: c.data == "confirm", state=ST.Booking.END_BOOK)
 async def confirm_appointment(call, state=FSMContext):
-    await fn.confirm_appointment(call, state)
+    await fn.confirm_appointment(call, state, bot)
     await state.finish()
 
 
