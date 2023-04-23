@@ -242,7 +242,12 @@ async def my_place(call, state=FSMContext):
     # ask for coordinate
     await fn.ask_location(call, state)
 
-
+@dp.callback_query_handler(lambda c: c.data == "back", state=ST.Booking.SEL_Place)
+async def back_to_procedure(call, state=FSMContext):
+    """give an information about location of salon"""
+    language_code = await fn.language_code_give(call,state)
+    await fn.chose_massage_procedure_propose(language_code, call)
+    await ST.Booking.SEL_Proc.set()
 @dp.message_handler(
     content_types=types.ContentType.LOCATION, state=ST.Booking.SEL_Place
 )
@@ -346,6 +351,10 @@ async def input_last_name(message=types.Message, state=FSMContext):
 @dp.message_handler(state=ST.FirstRegistration.L_NAME_REG)
 async def listen_last_name(message=types.Message, state=FSMContext):
     """Listen the last name"""
+    if message.text=="🔙":
+        await ST.FirstRegistration.F_NAME_REG.set()
+        await fn.first_name(message, state)
+        return
     # Hear the last name
     last_name = message.text
     # Send last name into the state
@@ -406,13 +415,22 @@ async def handler_phone_number(message=types.Message, state=FSMContext):
 @dp.message_handler(state=ST.FirstRegistration.EMAIL_REG)
 async def handler_email(message=types.Message, state=FSMContext):
     """Listen the E-Mail and save all"""
-    email = message.text
-    # Check if the email is valid
-    is_valid = await fn.validate_email(email)
-    if not is_valid:
-        await message.answer("Please enter a valid email address.")
+    language_code = await fn.language_code_give(message,state)
+    skip, back, valid_email = await fn.translate_text(language_code,
+                                                     ["skip", "back", "valid_email"])
+
+    if message.text == back:
+        await fn.ask_telephone(message, language_code)
+        await ST.FirstRegistration.TEL_REG.set()
         return
-    await state.update_data(email=email)
+    elif message.text != skip:
+        email = message.text
+        # Check if the email is valid
+        is_valid = await fn.validate_email(email)
+        if not is_valid:
+            await message.answer(valid_email)
+            return
+        await state.update_data(email=email)
 
     # Send all data from state into DB
 

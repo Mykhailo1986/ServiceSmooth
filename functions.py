@@ -184,14 +184,15 @@ async def name_agree(message, language_code, first_name, last_name):
     await message.answer(question, reply_markup=markup)
 
 
-async def first_name(call, state):
+async def first_name(obj, state):
     """Input firs name"""
-    first_name = call.message.chat.first_name
+    message=obj_processor(obj)
+    first_name = message.chat.first_name
     data = await state.get_data()
     language_code = data.get("language_code")
     first_name_text = await translate_text(language_code, "first_name_text")
     keyboard = await kb.one_button(first_name)
-    await call.message.answer(first_name_text, reply_markup=keyboard)
+    await message.answer(first_name_text, reply_markup=keyboard)
 
 
 async def last_name(message, state):
@@ -199,18 +200,24 @@ async def last_name(message, state):
     last_name = message.chat.last_name
     data = await state.get_data()
     language_code = data.get("language_code")
-    last_name_text = await translate_text(language_code, "last_name_text")
+    last_name_text, your_first_name, back = await translate_text(language_code, ["last_name_text", "your_first_name",'back'])
     keyboard = await kb.one_button(last_name)
+    keyboard = await kb.plural_buttons([last_name,back])
+    await message.answer(f"{your_first_name}{message.text}")
+
     await message.answer(last_name_text, reply_markup=keyboard)
-
-
-async def ask_telephone(call, language_code):
+async def back(obj, state):
+    language_code = await language_code_give(obj, state)
+    back = translate_text(language_code,"back")
+    return back
+async def ask_telephone(obj, language_code):
     """Ask for telephone number"""
+    message = obj_processor(obj)
     send_contact, ask_for_telephone = await translate_text(
         language_code, ["send_contact", "ask_for_telephone"]
     )
     markup_request = await kb.your_phone_number(send_contact)
-    await call.message.answer(ask_for_telephone, reply_markup=markup_request)
+    await message.answer(ask_for_telephone, reply_markup=markup_request)
 
 
 async def ask_contact(message, language_code):
@@ -227,7 +234,12 @@ async def ask_email(message, state):
     """Ask for email"""
     language_code = await language_code_give(message, state)
     ask_for_email = await translate_text(language_code, "ask_for_email")
-    await message.answer(ask_for_email)
+    ask_for_email, skip, back = await translate_text(language_code,
+                                                                 ["ask_for_email", "skip", "back"])
+
+    keyboard = await kb.plural_buttons([skip, back])
+    await message.answer(ask_for_email, reply_markup=keyboard)
+
 
 
 async def end_registration(message, state):
@@ -387,15 +399,22 @@ async def save_chosen_procedure(message, state, language_code):
 
 async def ask_for_location(message, language_code):
     """Propse to chose a place"""
-    place, keyboard = await kb.two_InlineKeyboardButton(
-        language_code,
-        "place",
-        "salon",
-        "my_place",
-        "salon",
-        "my_place",
-    )
+    # place, keyboard = await kb.two_InlineKeyboardButton(
+    #     language_code,
+    #     "place",
+    #     "salon",
+    #     "my_place",
+    #     "place",
+    #     "my_place",
+    # )
+    #
+
+    place, my_place, salon, back = await translate_text(language_code,("place", "my_place", "salon", "back"))
+
+    keyboard =await kb.InlineKeyboardButton_plural(((salon, "salon"),(my_place, "my_place"),(back,"back")))
     await message.answer(place, reply_markup=keyboard)
+
+
 
 
 async def our_contact(bot, obj, state):

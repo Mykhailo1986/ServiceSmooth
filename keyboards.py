@@ -102,8 +102,18 @@ async def two_InlineKeyboardButton(
         types.InlineKeyboardButton(buttonName2, callback_data=option2),
     )
     return question, markup
-
-
+async def InlineKeyboardButton_plural(request):
+    '''Return markups without translation
+        takes the request in this form (("buttonName1", "option1"),("buttonName2", "option1, option2"))
+    '''
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        *[
+            types.InlineKeyboardButton(button_text[0], callback_data=button_text[1])
+            for button_text in request
+        ]
+    )
+    return  markup
 async def languageOption():
     """Makes a row with possible languages by keys from file."""
     with open("text.json", "r", encoding="utf-8") as f:
@@ -133,6 +143,7 @@ async def plural_buttons(request,in_row=3):
     for button_text in request
         ]
     )
+
     return keyboard
 
 async def your_phone_number(send_contact):
