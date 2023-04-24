@@ -20,7 +20,7 @@ cursor = conn.cursor()
 # working_time = {"work_start": datetime.time(8, 0), "work_end": datetime.time(22, 0)}
 rest_days = [datetime.date(2023, 4, 16), datetime.date(2023, 4, 17)]
 
-specialist = (os.getenv("ADMIN"))
+specialist = os.getenv("ADMIN")
 """FOR MAX procedure search for n=5
     look in procedure_chosen in telegrass.py
     and look in text.json FROM line "act_1_1" ... TO line "time_act_1_5"
@@ -420,7 +420,7 @@ async def our_contact(bot, obj, state):
     salon_location = await translate_text(language_code, "salon_location")
     # send a place into state
     await state.update_data(address="salon")
-    await message.answer(salon_location)
+    await message.answer(salon_location, reply_markup=types.ReplyKeyboardRemove())
     # # send a photo to user
     # await bot.send_photo(message.chat.id, photo=open('media/pics/kitten1.jpg', "rb"), caption="Котик")
     # # send a location to user
@@ -516,13 +516,20 @@ async def day_selector(message, state):
     """hear and change the recived date in correct format save it  and ask for time"""
     # Import message text
     language_code = await language_code_give(message, state)
-    incorrect_data = await translate_text(language_code, "incorrect_data")
+    incorrect_data,day_appointment = await translate_text(language_code, ("incorrect_data", "day_appointment"))
+
     # change Time format
     day = data_formatter(message.text)
     if not day:
-        await message.reply(incorrect_data)
+        await message.answer(incorrect_data)
         await ask_for_data(message, state)
-        return None
+        return False
+    chat_id = int(message.chat.id)
+    time = await at_time(date=day, chat_id=chat_id)
+    if time:
+        await message.answer(day_appointment.format(time=time[:5]))
+        await ask_for_data(message, state)
+        return False
     # save time format in state
     await state.update_data(day=day)
 
@@ -1013,7 +1020,7 @@ async def confirm_appointment(call, state, bot):
 async def help_message(message, state, language_code):
     """send message about possible options"""
     help_message = await translate_text(language_code, "help_message")
-    await message.answer(help_message)
+    await message.answer(help_message, reply_markup=types.ReplyKeyboardRemove())
 
 
 def nearest_appointment(obj):
@@ -1066,14 +1073,12 @@ def nearest_appointment(obj):
         )
 
 
-async def looking(
-     obj, state, procedure, date, time, duration, address, total_priсe
-):
+async def looking(obj, state, procedure, date, time, duration, address, total_priсe):
     """Send message with your appointment and add it date and time in state"""
     # add time and date in state
     await state.update_data(date=date)
     await state.update_data(time=time)
-    language_code= await language_code_give(obj, state)
+    language_code = await language_code_give(obj, state)
     message = obj_processor(obj)
     if not procedure:
         none = await translate_text(language_code, "none_appointment")
@@ -1104,6 +1109,7 @@ async def looking(
         reply_markup=keyboard,
     )
     return True
+
 
 #
 # async def looking_another(call, state):
@@ -1183,21 +1189,24 @@ async def looking_another(call, state):
                 row[5],
             )
 
-            your_appointment = await translate_text(language_code, "your_appointment")
+            your_appointment, this = await translate_text(
+                language_code, ("your_appointment", "this_one")
+            )
 
-            button= await kb.one_InlineKeyboardButton("buttonName1", "option1")
-            data ={f"{i}":{
-                "procedure" : procedure,
-                "date" : date,
-                "time" : time,
-                "duration" : duration,
-                "place" : place,
-                "price" : price
-            }}
+            data = {
+                f"{i}": {
+                    "procedure": procedure,
+                    "date": date,
+                    "time": time,
+                    "duration": duration,
+                    "place": place,
+                    "price": price,
+                }
+            }
             await state.update_data(**data)
-            datas=f"this|{i}"
+            datas = f"this|{i}"
             # await call.message.answer(datas)
-            button = await kb.one_InlineKeyboardButton("buttonName1",datas)
+            button = await kb.one_InlineKeyboardButton(this, datas)
             if place == "salon":
                 place = await translate_text(language_code, "salon_location")
             # button= await kb.InlineKeyboardButton_plural(("Use",f"this, {procedure}, {date}, {time}, {duration}, {place}, {price}"))
@@ -1210,7 +1219,8 @@ async def looking_another(call, state):
                     duration=duration,
                     place=place,
                     price=price,
-                ),reply_markup=button,
+                ),
+                reply_markup=button,
             )
             i += 1
 
@@ -1218,9 +1228,12 @@ async def looking_another(call, state):
 
 
 async def chose_appointment_to_look(call, state):
-    '''send proposition to chose from appointments'''
+    """send proposition to chose from appointments"""
     language_code = await language_code_give(call, state)
-    chose_from_appointments = await translate_text(language_code,"chose_from_appointments")
+    chose_from_appointments = await translate_text(
+        language_code, "chose_from_appointments"
+    )
+
 
 async def change_delete(call, state):
     """gives an option to change the appointment od delete it"""
@@ -1243,95 +1256,26 @@ async def are_you_sure(call, state):
     choise = call.data
     if choise == "change":
         sure = "cng_app"
+        you_sure = "you_sure_change"
     elif choise == "cancel":
         sure = "del"
+        you_sure = "you_sure_delete"
 
     else:
         await state.finish()
         return
 
-
-
-
     question, keyboard = await kb.two_InlineKeyboardButton(
-        language_code, "you_sure", sure, "no", f"{choise} it", "no"
+        language_code, you_sure, sure, "no", f"{choise} it", "no"
     )
     option = await translate_text(language_code, sure)
     # send message to prove the choise
-    await call.message.answer(question.format(choise=option), reply_markup=keyboard)
+    await call.message.answer(question, reply_markup=keyboard)
 
 
-async def change_date_appointment(call, state, bot):
-    """Change date appointment"""
-    # takes date and time  to find the appointment
-    data = await state.get_data()
-    date = data.get("date")
-    time =  data.get("time")
-    # find appointment in DB
-    chat_id = call.message.chat.id
-    row = cursor.execute(
-        "SELECT procedure, date, time, duration, place, price, registration_time, procedure_number, kind FROM appointments WHERE date=? AND status=1 AND chat_id=? and time=?;",
-        (date, chat_id, time ),
-    )
-    row = cursor.fetchone()
-    if row == []:
-        return False
+async def take_appointment_from_db(date, time, chat_id):
+    """takes datas for appointment by date and time"""
 
-    else:
-        (
-            procedure,
-            date,
-            time,
-            duration,
-            address,
-            total_priсe,
-            registration_time,
-            procedure_number,
-            kind,
-        ) = (
-            row[0],
-            row[1],
-            row[2],
-            row[3],
-            row[4],
-            row[5],
-            row[6],
-            row[7],
-            row[8],
-        )
-
-    # change status of appointment
-    now = call.message.date
-    cursor.execute(
-        "UPDATE appointments SET status=3, changed=? WHERE date=? AND time=? AND chat_id=?",
-        (now, date, time, chat_id),
-    )
-    conn.commit()
-    # asking to input a new date
-    await ask_for_data(call, state)
-    await ST.Booking.SEL_Date.set()
-
-    # send a datas into state
-    await state.update_data(kind=kind)
-    await state.update_data(address=address)
-    await state.update_data(duration=duration)
-    await state.update_data(procedure=procedure)
-    await state.update_data(total_priсe=total_priсe)
-    await state.update_data(procedure_number=procedure_number)
-    await state.update_data(registration_time=registration_time)
-
-    # Delete appointment from google calendar
-    await delete_event(call, date, time, bot, reason="MOVED", colorId=8)
-
-
-async def cancel_appointment(call, state, bot):
-    """cancel the appointment"""
-    # takes date and time  to find the appointment
-    data = await state.get_data()
-    date = data.get("date")
-    time = data.get("time")
-    # find appointment in DB
-    chat_id = call.message.chat.id
     row = cursor.execute(
         "SELECT procedure, date, time, duration, place, price, registration_time, procedure_number, kind FROM appointments WHERE date=? AND status=1 AND chat_id=? and time=?;",
         (date, chat_id, time),
@@ -1362,15 +1306,91 @@ async def cancel_appointment(call, state, bot):
             row[7],
             row[8],
         )
+        return (
+            procedure,
+            date,
+            time,
+            duration,
+            address,
+            total_priсe,
+            registration_time,
+            procedure_number,
+            kind,
+        )
 
 
+async def change_date_appointment(call, state, bot):
+    """Change date appointment"""
+    data = await state.get_data()
+    date = data.get("date")
+    time = data.get("time")
+    # find appointment in DB
+    chat_id = call.message.chat.id
+    # takes datas from DB
+    (
+        procedure,
+        date,
+        time,
+        duration,
+        address,
+        total_priсe,
+        registration_time,
+        procedure_number,
+        kind,
+    ) = await take_appointment_from_db(date, time, chat_id)
+
+    await change_status_appointment(call, date, time, status=3)
+    # asking to input a new date
+    await ask_for_data(call, state)
+    await ST.Booking.SEL_Date.set()
+
+    # send a datas into state
+    await state.update_data(kind=kind)
+    await state.update_data(address=address)
+    await state.update_data(duration=duration)
+    await state.update_data(procedure=procedure)
+    await state.update_data(total_priсe=total_priсe)
+    await state.update_data(procedure_number=procedure_number)
+    await state.update_data(registration_time=registration_time)
+
+    # Delete appointment from google calendar
+    await delete_event(call, date, time, bot, reason="MOVED", colorId=8)
+
+
+async def change_status_appointment(call, date, time, status):
+    """change status of appointment"""
+    # find appointment in DB
+    chat_id = call.message.chat.id
     now = call.message.date
-    # change status of appointment
     cursor.execute(
-        "UPDATE appointments SET status=0, changed=? WHERE date=? AND time=? AND chat_id=?",
-        (now, date, time, chat_id),
+        "UPDATE appointments SET status=?, changed=? WHERE date=? AND time=? AND chat_id=?",
+        (status, now, date, time, chat_id),
     )
     conn.commit()
+
+
+async def cancel_appointment(call, state, bot):
+    """cancel the appointment"""
+    # takes date and time  to find the appointment
+    data = await state.get_data()
+    date = data.get("date")
+    time = data.get("time")
+    # find appointment in DB
+    chat_id = call.message.chat.id
+    # takes datas from DB
+    (
+        procedure,
+        date,
+        time,
+        duration,
+        address,
+        total_priсe,
+        registration_time,
+        procedure_number,
+        kind,
+    ) = await take_appointment_from_db(date, time, chat_id)
+
+    await change_status_appointment(call, date, time, status=0)
     # take phone number
     phone = cursor.execute("SELECT phone_number FROM users WHERE id = ?;", (chat_id,))
     phone = cursor.fetchone()
@@ -1412,3 +1432,20 @@ async def delete_event(call, date, time, bot, reason="CANCELED", colorId=11):
     )
     # left "crumbs" from deletions or canceling
     calendar.add_event(calendar_id=calendar_id, body=body)
+
+
+async def at_time(date, chat_id, kind="massage"):
+    """Return time of appointment in this day to this specialist"""
+
+    row = cursor.execute(
+        "SELECT time FROM appointments WHERE date=? AND kind=? AND chat_id=? ;",
+        (date, kind, chat_id),
+    )
+
+    row = cursor.fetchone()
+    if row == []:
+        return False
+    else:
+        time = row[0]
+
+    return time

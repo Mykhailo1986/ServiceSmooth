@@ -35,7 +35,7 @@ dp.middleware.setup(LoggingMiddleware())
 @dp.message_handler(commands=["start"], state="*")
 async def start(message=types.Message, state=FSMContext):
     """It greets the user, changes the default language, and then directs them to the registration process"""
-    await message.answer("HI")
+    await message.answer("HI", reply_markup=types.ReplyKeyboardRemove())
     # checks if the language is in the database. If not, the user is prompted to choose a language.
     language_code = await fn.language_code_give(message, state)
     first_name = await fn.first_name_check(message)
@@ -55,6 +55,8 @@ async def help(message=types.Message, state=FSMContext):
         await language_start(message)
         return
     await fn.help_message(message, state, language_code)
+    await state.finish()
+
 
 
 @dp.message_handler(commands=["our"], state="*")
@@ -92,6 +94,8 @@ BEGINING
 async def looking(message=types.Message, state=FSMContext):
     """Send message with your appointments"""
     language_code = await fn.language_code_give(message, state)
+    look= await fn.translate_text(language_code,"look")
+    await message.answer(look,reply_markup=types.ReplyKeyboardRemove())
     if not language_code:
         await language_start(message)
         return
@@ -312,9 +316,9 @@ async def take_address_from_message(message: types.Message, state=FSMContext):
 @dp.message_handler(state=ST.Booking.SEL_Date)
 async def take_day_from_user(message: types.Message, state=FSMContext):
     """Take and save in state date of appointment from user inputs, asking for time"""
-    await fn.day_selector(message, state)
-    if await fn.ask_for_time(message, state, bot):
-        await ST.Booking.SEL_Time.set()
+    if await fn.day_selector(message, state):
+        if await fn.ask_for_time(message, state, bot):
+            await ST.Booking.SEL_Time.set()
 
 
 @dp.message_handler(state=ST.Booking.SEL_Time)
