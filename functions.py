@@ -526,15 +526,18 @@ async def day_selector(message, state):
         return False
     chat_id = int(message.chat.id)
     time = await at_time(date=day, chat_id=chat_id)
+    print(time)
     if time:
         await message.answer(day_appointment.format(time=time[:5]))
         await ask_for_data(message, state)
         return False
     # save time format in state
     await state.update_data(day=day)
+    return True
 
 
 async def ask_for_time(message, state, bot):
+
     # Import message text
     language_code = await language_code_give(message, state)
     ask_for_time, back = await translate_text(language_code, ("ask_for_time", "back"))
@@ -1443,7 +1446,7 @@ async def at_time(date, chat_id, kind="massage"):
     )
 
     row = cursor.fetchone()
-    if row == []:
+    if row == None:
         return False
     else:
         time = row[0]
