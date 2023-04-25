@@ -64,10 +64,7 @@ async def one_InlineKeyboardButton(
     """Return markup for a single button without translation text
     takes the button text in this form ("buttonName", "option")
     """
-
-
     markup = types.InlineKeyboardMarkup()
-
     markup.row(
         types.InlineKeyboardButton(buttonName1, callback_data=option1),
 
@@ -129,12 +126,11 @@ async def one_button(button_text):
 
 
 async def plural_buttons(request, in_row=3):
-
+    """Create a keyboard with many button"""
     keyboard = types.ReplyKeyboardMarkup(
         resize_keyboard=True, one_time_keyboard=True, row_width=in_row
     )
     keyboard.add(*[types.KeyboardButton(button_text) for button_text in request])
-
     return keyboard
 
 

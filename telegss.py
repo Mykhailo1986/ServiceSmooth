@@ -18,8 +18,10 @@ dp = Dispatcher(bot, storage=MemoryStorage())
 dp.middleware.setup(LoggingMiddleware())
 
 
-# @dp.message_handler(commands=["state"], state="*")
-# async def print_current_state(message: types.Message, state: FSMContext):
+@dp.message_handler(commands=["state"], state="*")
+async def print_current_state(message: types.Message, state: FSMContext):
+    current_state=await ST.state_operator.state(state)
+    await message.answer(current_state)
 #     current_state = await state.get_state()
 #     await bot.send_message(chat_id=617409965, text=message.date)
 #     if current_state is None:

@@ -63,6 +63,12 @@ def only_numbers(text_with_numbers):
     phone_number = "".join(numbers)
     return phone_number
 
+async def phone_number_format(phone):
+    formated_number=f"+{phone[:2]}({phone[2:5]}){phone[5:8]} {phone[8:10]} {phone[9:11]}"
+    return formated_number
+
+
+
 
 def obj_processor(obj):
     """return message from call and message type"""
@@ -261,9 +267,11 @@ async def send_registration_confirmation_message(message):
     # takes contact from DB
     chat_id = int(message.chat.id)
     email, first_name, language_code, last_name, phone_number = await sql.user_date(chat_id)
+
     # Take a text with chosen language
     thanks_for_reg = await translate_text(language_code, "reg_thanks")
     # Format text
+    phone_number= await phone_number_format(str(phone_number))
     thanks_for_reg = thanks_for_reg.format(
         first_name=first_name,
         last_name=last_name,
@@ -946,7 +954,8 @@ async def confirm_appointment(call, state, bot):
     we_will_call, thanks = await translate_text(
         language_code, ("we_will_call", "thanks")
     )
-    await call.message.answer(f"{thanks}\n{we_will_call.format(phone=str(phone))}")
+    phone = await phone_number_format(str(phone))
+    await call.message.answer(f"{thanks}\n{we_will_call.format(phone=phone)}")
 
     #  send message about appointment to admin
     await bot.send_message(
@@ -1220,8 +1229,8 @@ async def cancel_appointment(call, state, bot):
     # Send message we will call you
     language_code = await language_code_give(call, state)
     we_will_call = await translate_text(language_code, "we_will_call")
-
-    await call.message.answer(we_will_call.format(phone=str(phone)))
+    phone = await phone_number_format(str(phone))
+    await call.message.answer(we_will_call.format(phone=phone))
     # delete event from google calendar
     await delete_event(call, date, time, bot)
 
