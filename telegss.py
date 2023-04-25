@@ -548,7 +548,7 @@ async def implement_language(call):
 )
 async def saveLanguage(call, state=ST.ServiseSmoothState.CHOOSE_LANGUAGE):
     """Save the selected language"""
-    await fn.save_language_in_DB(call)
+    await fn.save_language_in_db(call)
     await state.finish()
 
 

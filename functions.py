@@ -9,13 +9,11 @@ import sqlite3
 import datetime
 import states as ST
 from calendar_client import calendar, calendar_id, create_event_body
+from memories import sql
 
 
 load_dotenv()
-# Connect to the database
-conn = sqlite3.connect(os.getenv("DB"))
-cursor = conn.cursor()
-# from datetime import datetime
+
 
 # working_time = {"work_start": datetime.time(8, 0), "work_end": datetime.time(22, 0)}
 rest_days = [datetime.date(2023, 4, 16), datetime.date(2023, 4, 17)]
@@ -75,11 +73,7 @@ def obj_processor(obj):
     return message
 
 
-async def language_coge_from_DB(id):
-    """Check whether a user has already set a default language preference in the bot or not."""
-    cursor.execute("SELECT language_code FROM users WHERE id = ?;", (id,))
-    result = cursor.fetchone()
-    return result[0] if result else None
+
 
 
 async def language_code_from_state(state):
@@ -95,8 +89,8 @@ async def language_code_give(obj, state):
     language_code = await language_code_from_state(state)
     if not language_code:
         message = obj_processor(obj)
-        id = int(message.chat.id)
-        language_code = await language_coge_from_DB(id)
+        chat_id = int(message.chat.id)
+        language_code = await sql.language_coge_db(chat_id)
         if not language_code:
             keyboards = await kb.one_button("/lang")
             await message.answer(
@@ -108,8 +102,8 @@ async def language_code_give(obj, state):
 
 async def register_language_if_needed(message):
     """checks if the language is in the database. If not, the user is prompted to choose a language."""
-    id = int(message.chat.id)
-    language_code = await language_coge_from_DB(id)
+    chat_id = int(message.chat.id)
+    language_code = await sql.language_coge_db(chat_id)
     if not language_code:
         await propose_local_language(message)
 
@@ -139,42 +133,34 @@ async def choose_language_from_available(call):
     await call.message.answer(call.data, reply_markup=markup)
 
 
-async def existanceCheck(id, now):
-    """Check if the private chat is already exist, and add it if not."""
-    check = cursor.execute("SELECT id FROM users WHERE id = ?;", (id,))
-    if not check.fetchone():
-        cursor.execute(
-            "INSERT INTO users (id, registration_time) VALUES (?, ?);",
-            (id, now),
-        )
-        conn.commit()
 
-
-async def save_language_in_DB(call):
+async def save_language_in_db(call):
     """Save the selected language"""
-    id = int(call.message.chat.id)
-    languageCode = call.data.split("=")[1]
+    chat_id = int(call.message.chat.id)
+    language_code = call.data.split("=")[1]
     now = call.message.date
     # check if the user already in base.
-    await existanceCheck(id, now)
+    await sql.existance_check(chat_id, now)
     # Save the language.
-    cursor.execute(
-        "UPDATE users SET language_code = ? WHERE id = ?;", (languageCode, id)
-    )
-    conn.commit()
-    language_is_chosen = await translate_text(languageCode, "language_is_chosen")
+    await sql.save_language_code(chat_id, language_code)
+    language_is_chosen = await translate_text(language_code, "language_is_chosen")
     key = await kb.one_button("/reg")
     await call.message.answer(
         language_is_chosen, reply_markup=key
     )  # languagePack back a List si in 1 request I add a [0].
 
 
+
+
+
 async def first_name_check(message):
     """checks if the user is registered in the database."""
-    id = int(message.chat.id)
-    cursor.execute("SELECT first_name FROM users WHERE id = ?;", (id,))
-    result = cursor.fetchone()
+    chat_id = int(message.chat.id)
+    result = await sql.give_users_name(chat_id)
     return result[0] if result else None
+
+
+
 
 
 async def name_agree(message, language_code, first_name, last_name):
@@ -260,27 +246,21 @@ async def end_registration(message, state):
     phone_number = only_numbers(phone_number)
     phone_number = int(phone_number)
     email = data.get("email")
-    id = int(message.chat.id)
+    chat_id = int(message.chat.id)
     # save into DB
-    cursor.execute(
-        "UPDATE users SET first_name=?, last_name=?, phone_number=?, email=? WHERE id=?;",
-        (first_name, last_name, phone_number, email, id),
-    )
-    conn.commit()
+    await sql.save_user(email, first_name, chat_id, last_name, phone_number)
 
     await send_registration_confirmation_message(message)
+
+
+
 
 
 async def send_registration_confirmation_message(message):
     """Send a message with thanks for registration"""
     # takes contact from DB
-    id = int(message.chat.id)
-    cursor.execute(
-        "SELECT language_code, first_name, last_name, phone_number, email FROM users WHERE id = ?;",
-        (id,),
-    )
-    language_code, first_name, last_name, phone_number, email = cursor.fetchone()
-    conn.commit()
+    chat_id = int(message.chat.id)
+    email, first_name, language_code, last_name, phone_number = await sql.user_date(chat_id)
     # Take a text with chosen language
     thanks_for_reg = await translate_text(language_code, "reg_thanks")
     # Format text
@@ -294,10 +274,12 @@ async def send_registration_confirmation_message(message):
     await message.answer(thanks_for_reg)
 
 
+
+
 async def is_contact_correct(message):
     """Send a confirm message with 2 options"""
-    id = int(message.chat.id)
-    language_code = await language_coge_from_DB(id)
+    chat_id = int(message.chat.id)
+    language_code = await sql.language_coge_db(chat_id)
     question, markup = await kb.two_InlineKeyboardButton(
         language_code,
         "valid_contact",
@@ -525,9 +507,8 @@ async def day_selector(message, state):
         await ask_for_data(message, state)
         return False
     chat_id = int(message.chat.id)
-    time = await at_time(date=day, chat_id=chat_id)
-    print(time)
-    if time:
+    time = await sql.at_time(date=day, chat_id=chat_id)
+    if time !=None:
         await message.answer(day_appointment.format(time=time[:5]))
         await ask_for_data(message, state)
         return False
@@ -569,25 +550,9 @@ async def ask_for_time(message, state, bot):
         if not price:
             price = data.get("total_priсe")
         # send incomplete appointment to the DB
-        query = """
-            INSERT INTO appointments
-            (chat_id, date, procedure, duration, place, price, registration_time, phone , status)
-            VALUES (?, ?, ?, ?, ?, ?, ?,(SELECT phone_number FROM users WHERE id = ?), 2)
-            """
-        cursor.execute(
-            query,
-            (chat_id, day, act, takes_time, address, int(price), now, chat_id),
-        )
-        conn.commit()
+        await sql.unfinished_appointment(act, address, chat_id, day, now, price, takes_time)
 
-        row = cursor.execute(
-            "SELECT phone_number, first_name, last_name FROM users WHERE id = ?;",
-            (chat_id,),
-        )
-        row = cursor.fetchone()
-        phone = row[0]
-        first_name = row[1]
-        last_name = row[2]
+        first_name, last_name, phone = await sql.give_contact(chat_id)
         summary = f"{first_name} {last_name}: +{phone}"
         # send message to administrator with info about incompleted appointment
         await bot.send_message(
@@ -605,6 +570,9 @@ async def ask_for_time(message, state, bot):
     markup_request = await kb.plural_buttons(formatted_times, 5)
     await message.answer(ask_for_time, reply_markup=markup_request)
     return True
+
+
+
 
 
 def busy_time_maker(day):
@@ -881,22 +849,8 @@ async def approve_appointment(message, state):
     # add in to DB
     chat_id = int(message.chat.id)
     now = message.date
-    cursor.execute(
-        "INSERT INTO appointments (chat_id, date, time, procedure, duration, place, price, registration_time, procedure_number, kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (
-            chat_id,
-            day,
-            time_appointment,
-            act,
-            takes_time,
-            address,
-            int(price_total),
-            now,
-            procedure_number,
-            kind,
-        ),
-    )
-    conn.commit()
+    await sql.create_appointment(act, address, chat_id, day, kind, now, price_total, procedure_number, takes_time,
+                             time_appointment)
 
     # add buttons
     approve_appointment, keyboard = await kb.two_InlineKeyboardButton(
@@ -909,6 +863,9 @@ async def approve_appointment(message, state):
         f"{approve_appointment}{act}\n{day} {time_appointment}\n{loc}{address}\n{price_total}{currency}\n{str(takes_time)}",
         reply_markup=keyboard,
     )
+
+
+
 
 
 async def create_en_event(call, state, summary):
@@ -964,60 +921,40 @@ async def create_en_event(call, state, summary):
     calendar.add_event(calendar_id=calendar_id, body=event)
 
 
-async def test(message):
-    # take phone and name number
-    chat_id = message.chat.id
-    row = cursor.execute(
-        "SELECT phone_number, first_name, last_name FROM users WHERE id = ?;",
-        (chat_id,),
-    )
-    row = cursor.fetchone()
-    phone = row[0]
-    first_name = row[1]
-    last_name = row[2]
-    summary = f"{first_name} {last_name}: +{phone}"
-    await message.answer(summary)
+
 
 
 async def confirm_appointment(call, state, bot):
     """send message that will be call by phone and save the approved the appointment"""
 
-    # take phone and name number
+    # take phone and name number from DB
     chat_id = call.message.chat.id
-    row = cursor.execute(
-        "SELECT phone_number, first_name, last_name FROM users WHERE id = ?;",
-        (chat_id,),
-    )
-    row = cursor.fetchone()
-    phone = row[0]
-    first_name = row[1]
-    last_name = row[2]
-    summary = f"{first_name} {last_name}: +{phone}"
-
-    await create_en_event(call, state, summary)
-    # input confirm and  phone number in DB
-    cursor.execute(
-        "UPDATE appointments SET phone=?, status=1 WHERE id = (SELECT id FROM appointments WHERE registration_time = (SELECT MAX(registration_time) FROM appointments WHERE chat_id = ?) AND chat_id = ?);",
-        (phone, chat_id, chat_id),
-    )
-    conn.commit()
+    first_name, last_name, phone = await sql.give_contact(chat_id)
+    # take datas from State
+    data = await state.get_data()
+    day = data.get("day")
+    time_appointment = data.get("time_appointment")
+    time_appointment = time_appointment.strftime("%H:%M:%S")
+    kind=data.get("kind")
+    # update status and save phone in DB
+    await sql.confirm(chat_id, phone, day,time_appointment, kind)
     # create the event in Google calendar
-
+    summary = f"{first_name} {last_name}: +{phone}"
+    await create_en_event(call, state, summary)
     # sand messages
-
     language_code = await language_code_give(call, state)
     we_will_call, thanks = await translate_text(
         language_code, ("we_will_call", "thanks")
     )
-
     await call.message.answer(f"{thanks}\n{we_will_call.format(phone=str(phone))}")
-    data = await state.get_data()
-    day = data.get("day")
-    time_appointment = data.get("time_appointment")
-    #  send message about appointment
+
+    #  send message about appointment to admin
     await bot.send_message(
         chat_id=specialist, text=f"Appointment {day} {time_appointment}\n{summary} "
     )
+
+
+
 
 
 async def help_message(message, state, language_code):
@@ -1033,47 +970,29 @@ def nearest_appointment(obj):
     now = datetime.datetime.now().strftime("%H:%M:%S")
     chat_id = message.chat.id
 
-    row = cursor.execute(
-        "SELECT procedure, MIN(date), time, duration, place, price, registration_time, procedure_number, kind FROM appointments WHERE date>=? AND status=1 AND chat_id=? ORDER BY time;",
-        (today, chat_id),
-    )
-    row = cursor.fetchone()
-    if row == []:
-        return False
+    (   procedure,
+        date,
+        time,
+        duration,
+        address,
+        total_priсe,
+        registration_time,
+        procedure_number,
+        kind,
 
-    else:
-        (
-            procedure,
-            date,
-            time,
-            duration,
-            address,
-            total_priсe,
-            registration_time,
-            procedure_number,
-            kind,
-        ) = (
-            row[0],
-            row[1],
-            row[2],
-            row[3],
-            row[4],
-            row[5],
-            row[6],
-            row[7],
-            row[8],
-        )
-        return (
-            procedure,
-            date,
-            time,
-            duration,
-            address,
-            total_priсe,
-            registration_time,
-            procedure_number,
-            kind,
-        )
+    )= sql.nearest_apointment(today,chat_id)
+
+    return (
+        procedure,
+        date,
+        time,
+        duration,
+        address,
+        total_priсe,
+        registration_time,
+        procedure_number,
+        kind,
+    )
 
 
 async def looking(obj, state, procedure, date, time, duration, address, total_priсe):
@@ -1114,68 +1033,13 @@ async def looking(obj, state, procedure, date, time, duration, address, total_pr
     return True
 
 
-#
-# async def looking_another(call, state):
-#     """Looks for another appointments"""
-#     language_code = await language_code_give(call, state)
-#     today = datetime.date.today()
-#     # takes the appointments from database
-#     chat_id = call.message.chat.id
-#     rows = cursor.execute(
-#         "SELECT procedure, date, time, duration, place, price FROM appointments WHERE date>=? AND status=1 AND chat_id=? ORDER BY date, time;",
-#         (today, chat_id),
-#     )
-#
-#     rows = cursor.fetchall()
-#     if rows == []:
-#         none = await translate_text(language_code, "none_appointment")
-#         await call.message.answer(none)
-#         return False
-#     else:
-#         i = 1
-#         for row in rows:
-#             procedure, date, time, duration, place, price = (
-#                 row[0],
-#                 row[1],
-#                 row[2],
-#                 row[3],
-#                 row[4],
-#                 row[5],
-#             )
-#             # await  call.message.answer(f"{procedure, date, time, duration, place, price}")
-#             your_appointment = await translate_text(language_code, "your_appointment")
-#             if place == "salon":
-#                 place = await translate_text(language_code, "salon_location")
-#
-#
-#             await call.message.answer(
-#                 your_appointment.format(
-#                     n=i,
-#                     procedure=procedure,
-#                     date=date,
-#                     time=time,
-#                     duration=duration,
-#                     place=place,
-#                     price=price,
-#                 ),
-#             )
-#             i += 1
-#
-#         return rows
-
-
 async def looking_another(call, state):
     """Looks for another appointments"""
     language_code = await language_code_give(call, state)
     today = datetime.date.today()
     # takes the appointments from database
     chat_id = call.message.chat.id
-    rows = cursor.execute(
-        "SELECT procedure, date, time, duration, place, price FROM appointments WHERE date>=? AND status=1 AND chat_id=? ORDER BY date, time;",
-        (today, chat_id),
-    )
-
-    rows = cursor.fetchall()
+    rows = await sql.all_appointments(chat_id, today)
     if rows == []:
         none = await translate_text(language_code, "none_appointment")
         await call.message.answer(none)
@@ -1210,6 +1074,8 @@ async def looking_another(call, state):
             datas = f"this|{i}"
             # await call.message.answer(datas)
             button = await kb.one_InlineKeyboardButton(this, datas)
+
+
             if place == "salon":
                 place = await translate_text(language_code, "salon_location")
             # button= await kb.InlineKeyboardButton_plural(("Use",f"this, {procedure}, {date}, {time}, {duration}, {place}, {price}"))
@@ -1276,50 +1142,7 @@ async def are_you_sure(call, state):
     await call.message.answer(question, reply_markup=keyboard)
 
 
-async def take_appointment_from_db(date, time, chat_id):
-    """takes datas for appointment by date and time"""
 
-    row = cursor.execute(
-        "SELECT procedure, date, time, duration, place, price, registration_time, procedure_number, kind FROM appointments WHERE date=? AND status=1 AND chat_id=? and time=?;",
-        (date, chat_id, time),
-    )
-    row = cursor.fetchone()
-    if row == []:
-        return False
-
-    else:
-        (
-            procedure,
-            date,
-            time,
-            duration,
-            address,
-            total_priсe,
-            registration_time,
-            procedure_number,
-            kind,
-        ) = (
-            row[0],
-            row[1],
-            row[2],
-            row[3],
-            row[4],
-            row[5],
-            row[6],
-            row[7],
-            row[8],
-        )
-        return (
-            procedure,
-            date,
-            time,
-            duration,
-            address,
-            total_priсe,
-            registration_time,
-            procedure_number,
-            kind,
-        )
 
 
 async def change_date_appointment(call, state, bot):
@@ -1340,7 +1163,7 @@ async def change_date_appointment(call, state, bot):
         registration_time,
         procedure_number,
         kind,
-    ) = await take_appointment_from_db(date, time, chat_id)
+    ) = await sql.take_appointment_from_db(date, time, chat_id)
 
     await change_status_appointment(call, date, time, status=3)
     # asking to input a new date
@@ -1362,14 +1185,12 @@ async def change_date_appointment(call, state, bot):
 
 async def change_status_appointment(call, date, time, status):
     """change status of appointment"""
-    # find appointment in DB
     chat_id = call.message.chat.id
     now = call.message.date
-    cursor.execute(
-        "UPDATE appointments SET status=?, changed=? WHERE date=? AND time=? AND chat_id=?",
-        (status, now, date, time, chat_id),
-    )
-    conn.commit()
+    # find appointment in DB
+    await sql.change_status(chat_id, date, now, status, time)
+
+
 
 
 async def cancel_appointment(call, state, bot):
@@ -1391,13 +1212,11 @@ async def cancel_appointment(call, state, bot):
         registration_time,
         procedure_number,
         kind,
-    ) = await take_appointment_from_db(date, time, chat_id)
+    ) = await sql.take_appointment_from_db(date, time, chat_id)
 
     await change_status_appointment(call, date, time, status=0)
     # take phone number
-    phone = cursor.execute("SELECT phone_number FROM users WHERE id = ?;", (chat_id,))
-    phone = cursor.fetchone()
-    phone = phone[0]
+    phone = await sql.phone_number(chat_id)
     # Send message we will call you
     language_code = await language_code_give(call, state)
     we_will_call = await translate_text(language_code, "we_will_call")
@@ -1407,19 +1226,15 @@ async def cancel_appointment(call, state, bot):
     await delete_event(call, date, time, bot)
 
 
+
+
+
 async def delete_event(call, date, time, bot, reason="CANCELED", colorId=11):
     # Delete appointment from google calendar
     calendar.del_event(calendar_id=calendar_id, date=date, start_time=time)
 
     chat_id = call.message.chat.id
-    row = cursor.execute(
-        "SELECT phone_number, first_name, last_name FROM users WHERE id = ?;",
-        (chat_id,),
-    )
-    row = cursor.fetchone()
-    phone = row[0]
-    first_name = row[1]
-    last_name = row[2]
+    first_name, last_name, phone = await sql.give_contact(chat_id)
     summary = f"{first_name} {last_name}: +{phone}"
     date_time = f"{date} {time}"
     # send message to specialist
@@ -1437,18 +1252,4 @@ async def delete_event(call, date, time, bot, reason="CANCELED", colorId=11):
     calendar.add_event(calendar_id=calendar_id, body=body)
 
 
-async def at_time(date, chat_id, kind="massage"):
-    """Return time of appointment in this day to this specialist"""
 
-    row = cursor.execute(
-        "SELECT time FROM appointments WHERE date=? AND kind=? AND chat_id=? ;",
-        (date, kind, chat_id),
-    )
-
-    row = cursor.fetchone()
-    if row == None:
-        return False
-    else:
-        time = row[0]
-
-    return time
