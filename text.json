@@ -61,6 +61,16 @@
         "change_delete": " If you want to change or delete the appointment, press the button",
         "this_one" : "This One",
 
+        "start": "start the bot and receive a welcome message.",
+        "book" : "book a new appointment.",
+        "look": "view your existing appointment details, change or cancel them.",
+        "our" : "get the contact information for our salon.",
+        "lang":  "change your language preference for interacting with the bot.",
+        "reg": "register with our system.(Name, phone, Email)",
+        "tomorrow_reminder": "This message is reminding {appointment[1]} {appointment[2]} about their {appointment[3]} appointment tomorrow at {appointment[4]} in {appointment[6]}.",
+        "daily_reminder": "Just a reminder of your appointment for {appointment[3]} at {appointment[4]}.",
+
+
         "act_1_1": "Anticellulite masage",
         "act_1_1_descr": "Anticellulite massage is a specialized massage technique designed to help reduce the appearance of cellulite on the body. This type of massage typically involves deep tissue massage, kneading, and other techniques to increase circulation, stimulate lymphatic drainage, and break down fatty deposits under the skin. The goal of the massage is to improve skin texture and tone, reduce the appearance of dimples and bumps, and create a smoother, more toned appearance overall.",
         "price_act_1_1": " 36 ",
@@ -142,6 +152,15 @@
         "this_one" : "Ось цей",
         "look" : "Давайте знайдемо нашу заплановану зустріч.\nНайближча:",
         "day_appointment": "Ви вже маєте заплановану зустріч на цей день о {time}. Якщо вам потрібна додаткова інформація або ви хочете внести зміни, будь ласка, наберіть /look, щоб знайти свою зустріч.",
+
+        "start": "запустити бота та отримати вітальне повідомлення.",
+        "book": "записатись на нову зустріч.",
+        "look": "переглянути деталі вашої існуючої зустрічі, змінити або скасувати її.",
+        "our": "отримати контактну інформацію нашого салону.",
+        "lang": "змінити мовні налаштування для спілкування з ботом.",
+        "reg": "зареєструватися в нашій системі. (ім'я, телефон, електронна пошта)",
+        "tomorrow_reminder": "Це повідомлення нагадує: {appointment[1]} {appointment[2]} ви записані на {appointment[3]} завтра о {appointment[4]} у {appointment[6]}.",
+        "daily_reminder": "Ще раз нагадуемо, про ваш запис на {appointment[3]} о {appointment[4]}. ",
 
         "act_1_1": "Антицелюлітний масаж",
         "act_1_1_descr": "Антицелюлітний масаж - це спеціальна техніка масажу, призначена для допомоги у зменшенні вигляду целюліту на тілі. Цей тип масажу, як правило, включає в себе масаж глибоких тканин, м'якування та інші техніки з метою підвищення кровообігу, стимулювання лімфатичного дренажу та розбиття жирових відкладень під шкірою. Метою масажу є покращення текстури і тонусу шкіри, зменшення вигляду впадин та бугорчиків та створення більш гладкого, більш тонізованого вигляду загалом.",

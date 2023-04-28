@@ -79,8 +79,8 @@ def obj_processor(obj):
     return message
 
 
-
-
+async def language_code_db(chat_id):
+    return await sql.language_coge_db(chat_id)
 
 async def language_code_from_state(state):
     """Extract language code"""

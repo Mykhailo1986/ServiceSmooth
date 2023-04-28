@@ -7,6 +7,8 @@ import logging
 import os
 
 
+
+from reminder import reminders
 import functions as fn
 import states as ST
 
@@ -17,11 +19,46 @@ bot = Bot(os.getenv("TOKEN"))
 dp = Dispatcher(bot, storage=MemoryStorage())
 dp.middleware.setup(LoggingMiddleware())
 
+from aiogram import types
+
+
+
+async def set_default_commands(dp, message: types.Message):
+    language_code = await fn.language_code_db(message.chat.id)
+    if language_code==None:tch
+        language_code="en"
+    start, book, look, our, lang, reg = await fn.translate_text(language_code,("start", "book", "look", "our", "lang", "reg"))
+    print(start)
+    await dp.bot.set_my_commands(
+
+        [
+            types.BotCommand("start", start),
+            types.BotCommand("book", book),
+            types.BotCommand("look", look),
+            types.BotCommand("our", our),
+            types.BotCommand("lang", lang),
+            types.BotCommand("reg", reg)
+
+
+        ]
+    )
+
+# async def update_commands(dp, language_code):
+#
+#     start = await fn.translate_text(language_code,"start")
+#     print(start)
+#     await dp.bot.delete_my_commands()
+#     await dp.bot.set_my_commands(
+#         [
+#             types.BotCommand("start", start)
+#         ]
+#     )
 
 @dp.message_handler(commands=["state"], state="*")
 async def print_current_state(message: types.Message, state: FSMContext):
     current_state=await ST.state_operator.state(state)
     await message.answer(current_state)
+    await reminders(bot)
 #     current_state = await state.get_state()
 #     await bot.send_message(chat_id=617409965, text=message.date)
 #     if current_state is None:
@@ -48,6 +85,9 @@ async def start(message=types.Message, state=FSMContext):
     elif not first_name:
         await registration_start(message, state)
 
+    # await set_default_commands(dp, message)
+
+    # await update_commands(dp, language_code)
 
 @dp.message_handler(commands=["help"], state="*")
 async def help(message=types.Message, state=FSMContext):
@@ -558,5 +598,9 @@ async def saveLanguage(call, state=ST.ServiseSmoothState.CHOOSE_LANGUAGE):
 Language chose
 END
 """
+
+
+
+
 
 executor.start_polling(dp)

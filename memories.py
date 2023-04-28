@@ -237,6 +237,18 @@ class SQL:
         phone = phone[0]
         return phone
 
+    async def for_reminder(self,date):
+        query = """SELECT users.language_code, users.first_name, users.last_name,  appointments.procedure, appointments.time, appointments.duration, appointments.place, appointments.price, appointments.chat_id
+                    FROM appointments 
+                    INNER JOIN users 
+                    ON appointments.chat_id = users.id 
+                    WHERE appointments.date = ? AND appointments.status = 1
+                    ORDER BY appointments.time;
+                """
+        appointments = self.cursor.execute(query,(date,))
+        appointments = self.cursor.fetchall()
+        return appointments
+
     # The two functions all_appointments() and rowsgi() appear to be identical in terms of their implementation and the SQL query that they execute. Therefore, they should return the same type of rows.
     # async def all_appointments(self,today,chat_id):
     #     """return the list of next appointments """
