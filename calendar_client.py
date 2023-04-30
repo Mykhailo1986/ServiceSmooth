@@ -152,4 +152,59 @@ def create_event_body(
     return event
 
 
+
+# calendar = GoogleCalendar()
+
+""" New async Type """
+
+import asyncio
+from googleapiclient.discovery import build
+from dotenv import load_dotenv
+from google.oauth2._service_account_async import  Credentials
+import os
+
+# Load environment variables from .env file
+load_dotenv()
+calendar_id = os.getenv("calendar_id")
+credentials_file = os.getenv("credentials_file")
+
+
+class GoogleCalendar2:
+
+    SCOPES = ["https://www.googleapis.com/auth/calendar"]
+
+    def __init__(self):
+        self.credentials = Credentials.from_service_account_file(credentials_file, scopes=self.SCOPES)
+        self.service = build("calendar", "v3", credentials=self.credentials)
+
+    async def get_calendar_list(self):
+        return await asyncio.to_thread(self.service.calendarList().list().execute)
+
+    async def add_calendar(self, calendar_id):
+        calendar_list_entry = {"id": calendar_id}
+
+        return await asyncio.to_thread(self.service.calendarList().insert, body=calendar_list_entry)
+
+    async def add_event(self, calendar_id, body):
+        """add event in to chosen calendar"""
+        return await asyncio.to_thread(self.service.events().insert, calendarId=calendar_id, body=body)
+
+    async def get_events(self, calendar_id, date):
+        """takes event from calendar in chosen day"""
+        start_date = datetime.datetime.strptime(date, "%Y-%m-%d")
+        end_date = start_date + datetime.timedelta(days=1)
+        time_min = start_date.isoformat() + "Z"
+        time_max = end_date.isoformat() + "Z"
+        events_result = await asyncio.to_thread(
+            self.service.events().list, calendarId=calendar_id, timeMin=time_min, timeMax=time_max)
+        events = events_result.get("items", [])
+        return events
+
+    async def del_event(self, calendar_id, date, start_time):  # , phone):
+        """delete event from calendar"""
+
+        for event in await self.get_events(calendar_id, date):
+            if event["start"]["dateTime"] == f"{date}T{start_time}+03:00":
+                return await asyncio.to_thread(self.service.events().delete, calendarId=calendar_id, eventId=event["id"])
+
 calendar = GoogleCalendar()

@@ -5,11 +5,13 @@ from dotenv import load_dotenv
 import os
 import json
 import keyboards as kb
-import sqlite3
+# import sqlite3
 import datetime
 import states as ST
+
 from calendar_client import calendar, calendar_id, create_event_body
-from memories import sql
+
+from sql_async import sql
 
 
 load_dotenv()
@@ -972,7 +974,7 @@ async def help_message(message, state, language_code):
     await message.answer(help_message, reply_markup=types.ReplyKeyboardRemove())
 
 
-def nearest_appointment(obj):
+async def nearest_appointment(obj):
     """takes data for nearest appointment"""
     message = obj_processor(obj)
     today = datetime.date.today().strftime("%Y-%m-%d")
@@ -989,7 +991,7 @@ def nearest_appointment(obj):
         procedure_number,
         kind,
 
-    )= sql.nearest_apointment(today,chat_id)
+    )=await sql.nearest_apointment(today,chat_id)
 
     return (
         procedure,

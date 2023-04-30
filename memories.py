@@ -1,8 +1,10 @@
 import sqlite3
-from dotenv import load_dotenv
-import os
+
 from aiogram.dispatcher import FSMContext
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from dotenv import load_dotenv
+import os
+
 
 class SQL:
     """For working with DataBase"""
@@ -184,7 +186,7 @@ class SQL:
             (chat_id,),
         )
         language_code, first_name, last_name, phone_number, email = self.cursor.fetchone()
-        self.conn.commit()
+
         return email, first_name, language_code, last_name, phone_number
 
     async def change_status(self,chat_id, date, now, status, time):
