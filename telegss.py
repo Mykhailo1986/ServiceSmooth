@@ -25,7 +25,7 @@ from aiogram import types
 
 async def set_default_commands(dp, message: types.Message):
     language_code = await fn.language_code_db(message.chat.id)
-    if language_code==None:tch
+    if language_code==None:
         language_code="en"
     start, book, look, our, lang, reg = await fn.translate_text(language_code,("start", "book", "look", "our", "lang", "reg"))
     print(start)
@@ -152,7 +152,7 @@ async def looking(message=types.Message, state=FSMContext):
         registration_time,
         procedure_number,
         kind,
-    ) = fn.nearest_appointment(message)
+    ) =await  fn.nearest_appointment(message)
     await ST.ServiseSmoothState.CHOOSE_lOOK.set()
     await fn.looking(
          message, state, procedure, date, time, duration, address, total_priсe
