@@ -96,7 +96,7 @@ class GoogleCalendar:
         return all_events
 
 
-def create_event_body(
+async def create_event_body(
     date, start_time, duration, summary, description, location, colorId
 ):
     """create the body for event"""

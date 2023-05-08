@@ -20,6 +20,7 @@ class Booking(StatesGroup):
     START_BOOK = State()  # Here is I save the language_code
     SEL_Spec = State()
     SEL_Place = State()
+    SEL_Duration = State()
     SEL_Proc = State()
     SEL_Date = State()
     SEL_Time = State()

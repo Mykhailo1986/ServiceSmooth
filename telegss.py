@@ -26,7 +26,7 @@ from aiogram import types
 async def set_default_commands(dp, message: types.Message):
     language_code = await fn.language_code_db(message.chat.id)
     if language_code==None:
-        language_code="en"
+        language_code="uk"
     start, book, look, our, lang, reg = await fn.translate_text(language_code,("start", "book", "look", "our", "lang", "reg"))
     print(start)
     await dp.bot.set_my_commands(
@@ -136,7 +136,7 @@ BEGINING
 async def looking(message=types.Message, state=FSMContext):
     """Send message with your appointments"""
     language_code = await fn.language_code_give(message, state)
-    look= await fn.translate_text(language_code,"look")
+    look= await fn.translate_text(language_code,"looks")
     await message.answer(look,reply_markup=types.ReplyKeyboardRemove())
     if not language_code:
         await language_start(message)
@@ -281,13 +281,7 @@ async def booking(message=types.Message, state=FSMContext):
 async def procedure_chosen_by_commands(message=types.Message, state=FSMContext):
     if message.text[0] == "/":
         message.text = message.text[1]
-    # take the language code
-    language_code = await fn.language_code_give(message, state)
-    # save the number chosen procedure
-    await fn.save_chosen_procedure(message, state, language_code)
-    # sand a massage the propose to choose a place
-    await fn.ask_for_location(message, language_code)
-    await ST.Booking.SEL_Place.set()
+        await procedure_chosen(message,state)
 
 
 @dp.message_handler(
@@ -310,7 +304,8 @@ async def salon(call, state=FSMContext):
     await ST.Booking.SEL_Date.set()
     # send our contact information
     await fn.our_contact(bot, call, state)
-    await fn.ask_for_data(call, state)
+    await fn.ask_duration(call, state)
+    await ST.Booking.SEL_Duration.set()
 
 
 @dp.callback_query_handler(lambda c: c.data == "my_place", state=ST.Booking.SEL_Place)
@@ -340,8 +335,8 @@ async def extract_location_from_contact(message: types.Message, state=FSMContext
     # update the chat's state with the location data
     await state.update_data(address=[latitude, longitude])
     # send a confirmation message
-    await fn.ask_for_data(message, state)
-    await ST.Booking.SEL_Date.set()
+    await fn.ask_duration(message, state)
+    await ST.Booking.SEL_Duration.set()
 
 
 @dp.message_handler(state=ST.Booking.SEL_Place)
@@ -351,8 +346,24 @@ async def take_address_from_message(message: types.Message, state=FSMContext):
     await state.update_data(
         address=address,
     )
-    await fn.ask_for_data(message, state)
+    await fn.ask_duration(message, state)
+    await ST.Booking.SEL_Duration.set()
+
+
+
+@dp.callback_query_handler(state=ST.Booking.SEL_Duration)
+async def duration(call,state):
+    """Saves chosen duration to the state"""
+    if call.data == "hour":
+        await state.update_data(duration=60)
+    elif call.data == "half":
+        await state.update_data(duration=30)
+    elif call.data == "quarter":
+        await state.update_data(duration=15)
+    await fn.ask_for_date(call, state)
     await ST.Booking.SEL_Date.set()
+
+
 
 
 @dp.message_handler(state=ST.Booking.SEL_Date)
@@ -368,7 +379,7 @@ async def take_time_from_user(message: types.Message, state=FSMContext):
     """Take and save in state time of appointment from user, send a confirmation"""
     back = await fn.back(message, state)
     if message.text == back:
-        await fn.ask_for_data(message, state)
+        await fn.ask_for_date(message, state)
         await ST.Booking.SEL_Date.set()
     elif await fn.time_selector(message, state, bot):
         await fn.approve_appointment(message, state)
